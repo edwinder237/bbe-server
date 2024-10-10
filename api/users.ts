@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { corsMiddleware } from '../api/corsMiddleware';
+import { corsMiddleware } from './corsMiddleware';
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
