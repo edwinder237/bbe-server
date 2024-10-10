@@ -6,11 +6,13 @@
 
 generator client {
   provider = "prisma-client-js"
+    binaryTargets = ["native", "rhel-openssl-1.0.x"]
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://main_owner:4NAZbeMTlnp9@ep-shy-feather-a5fuqa29-pooler.us-east-2.aws.neon.tech/main?sslmode=require"
 }
 
 model Client {

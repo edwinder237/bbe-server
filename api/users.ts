@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 
   try {
-    const users = await prisma.user.findMany();
+    const users = await prisma.Client.findMany();
     return res.status(200).json(users);
   } catch (error) {
     console.error("Error fetching users:", error);
