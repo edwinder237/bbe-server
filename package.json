@@ -18,6 +18,6 @@
   "scripts": {
     "server": "vercel dev --listen 8080",
     "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build"
+    "vercel-build": "prisma generate && prisma migrate deploy"
   }
 }
