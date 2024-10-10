@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { corsMiddleware } from '../corsMiddleware'; // Adjust the path as necessary
+import { corsMiddleware } from '../../utils/corsMiddleware'; // Adjust the path as necessary
 
 const LODGIFY_API_KEY = process.env.LODGIFY_API_KEY || 'Rm1RqotAajREi+Nyj+KD9A88huz7Is7pc3u/MNiP6Dd3AQMJL6SgDR5LOhhbvCjQ';
 const APP_KEY = process.env.APP_KEY || 'YOUR_APP_KEY'; // Set your APP_KEY here or use environment variables

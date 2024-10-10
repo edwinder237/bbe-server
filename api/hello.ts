@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { corsMiddleware } from './corsMiddleware'; 
+import { corsMiddleware } from '../utils/corsMiddleware'; 
 
 
 

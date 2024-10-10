@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { corsMiddleware } from '../../corsMiddleware';
+import { corsMiddleware } from '../../../utils/corsMiddleware';
 
 // Your Guesty Client ID and Secret
 const CLIENT_ID = '0oah6j5a9ni8AcSmN5d7';

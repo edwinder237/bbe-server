@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { corsMiddleware } from '../corsMiddleware';
-import { client_listing_detail_Converter } from '../clientConverter';
-import { guesty_listings } from '../types';
+import { corsMiddleware } from '../../utils/corsMiddleware';
+import { client_listing_detail_Converter } from '../../utils/clientConverter';
+import { guesty_listings } from '../../utils/types';
 
 const listing  = {
   "id": "656e8fb3792dcf000f9fc55f",

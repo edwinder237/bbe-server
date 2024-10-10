@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { corsMiddleware } from '../corsMiddleware';
-import { GuestyConverter } from '../clientConverter';
-import { guesty_listings, lodgify_listings } from '../types';
+import { corsMiddleware } from '../../utils/corsMiddleware';
+import { GuestyConverter } from '../../utils/clientConverter';
+import { guesty_listings, lodgify_listings } from '../../utils/types';
 
 const LODGIFY_API_KEY = process.env.LODGIFY_API_KEY || 'Rm1RqotAajREi+Nyj+KD9A88huz7Is7pc3u/MNiP6Dd3AQMJL6SgDR5LOhhbvCjQ';
 const APP_KEY = process.env.APP_KEY || 'YOUR_APP_KEY'; // Set your APP_KEY here or use environment variables

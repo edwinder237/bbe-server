@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { corsMiddleware } from '../corsMiddleware';
-import { GuestyConverter } from '../clientConverter';
-import { guesty_listings } from '../types';
+import { corsMiddleware } from '../../utils/corsMiddleware';
+import { GuestyConverter } from '../../utils/clientConverter';
+import { guesty_listings } from '../../utils/types';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Call the CORS middleware
