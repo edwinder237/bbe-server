@@ -1,0 +1,419 @@
+{
+  "count": null,
+  "items": [
+    {
+      "id": 567440,
+      "name": "Charlevoix  -  Chalet Le DesBouleaux",
+      "internal_name": "DesBouleaux",
+      "description": "<p>Le chalet DesBouleaux se trouve au milieu des bois en bordure d'un petit lac baignable dans la belle région de Charlevoix. Il possède toutes les commodités et le confort nécessaire pour un séjour de détente et d'activités en plein air. Venez profiter d'un site situé près des grands parcs nationaux et terminez votre soirée dans le spa sous les étoiles.  Un spa privé 4 saisons en pleine nature s’offre à vous. Un foyer intérieur et extérieur avec bois fourni raisonnablement ainsi qu'un bol à fondue électrique font partie des commodités du chalet.  Vous y trouverez une chambre fermée au rez-de-chaussée avec lit king ainsi que deux lits queen à la mezzanine accessible par une échelle.  Plusieurs sentiers de raquette se trouvent sur le terrain ainsi qu'une butte pour la glissade avec tubes sur place. Si vous avez besoin de raquettes, nous en avons pour vous! À proximité du chalet, vous retrouverez une fermette avec des petits animaux que vous pouvez aller saluer. </p>\n<p>Tout est inclus dans le chalet (literie et serviettes). Il ne manque que vous et vos effets personnels!</p>\n<p><br></p>",
+      "latitude": 47.7255,
+      "longitude": -70.38449,
+      "address": " 295 Rue Principale",
+      "hide_address": false,
+      "zip": " G0T 1S0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/a24671c8-de7f-4dcd-a520-0db8b0a0fa96.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 177.28124163767728,
+      "original_min_price": 265,
+      "max_price": 186.64704308268665,
+      "original_max_price": 279,
+      "rooms": [
+        {
+          "id": 634146,
+          "name": "Charlevoix  -  Chalet Le DesBouleaux"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-04-01T21:13:50",
+      "updated_at": "2024-06-14T18:22:08",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    },
+    {
+      "id": 567441,
+      "name": "Charlevoix -  Chalet Le Cormier",
+      "internal_name": null,
+      "description": "<p>Le chalet Le Cormier se trouve au milieu des bois dans la belle région de Charlevoix. Il possède toutes les commodités et le confort nécessaire pour un séjour de détente et d'activités en plein air. Venez profiter d'un site situé près des grands parcs nationaux et terminez votre soirée dans le spa sous les étoiles. Un spa 4 saisons en pleine nature s'offre à vous. Un foyer extérieur et intérieur avec bois fourni raisonnablement ainsi qu'un bol à fondue électrique font partie des commodités du chalet. Vous y trouverez une chambre fermée avec lit double et un lit king à la mezzanine accessible par une échelle ainsi qu'une salle de bain complète. À proximité du chalet, se trouve un petit lac baignable avec une plage. Plusieurs sentiers de raquette se trouvent sur le terrain ainsi qu'une butte pour la glissade avec tubes sur place. Si vous avez besoin de raquettes, nous en avons pour vous! À proximité du chalet, vous retrouverez une fermette avec des petits animaux que vous pouvez aller saluer.<br></p>\n<p>Tout est inclus dans le chalet (literie et serviettes). Il ne manque que vous et vos effets personnels!<br></p>",
+      "latitude": 47.7255,
+      "longitude": -70.38449,
+      "address": " 295 rue Principale",
+      "hide_address": false,
+      "zip": "G0T 1S0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/ce3701a8-2353-4a4b-9d68-fd948de24cc6.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 137.14209258763714,
+      "original_min_price": 205,
+      "max_price": 150.52180893765052,
+      "original_max_price": 225,
+      "rooms": [
+        {
+          "id": 634147,
+          "name": "Charlevoix -  Chalet Le Cormier"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-04-01T21:13:51",
+      "updated_at": "2024-06-14T19:19:53",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    },
+    {
+      "id": 567442,
+      "name": "Charlevoix - Chalet Le Refuge",
+      "internal_name": null,
+      "description": "<p>Le chalet Le Refuge se trouve au milieu des bois dans la belle région de Charlevoix. Il possède toutes les commodités et le confort nécessaire pour un séjour de détente et d'activités en plein air. Venez profiter d'un site situé près des grands parcs nationaux et terminez votre soirée dans le spa sous les étoiles. Un spa privé 4 saisons en pleine nature s’offre à vous ainsi qu'un sauna sec avec fenêtres donnant sur l'extérieur. Un foyer intérieur et extérieur avec bois fourni raisonnablement ainsi qu'un bol à fondue électrique font partie des commodités du chalet. Vous y trouverez deux chambres fermées avec lit king et deux autres lits king à la mezzanine à aire ouverte accessible par un escalier ainsi qu'une salle de bain complète.  À proximité du chalet, se trouve un petit lac baignable avec une plage. Plusieurs sentiers de raquette se trouvent sur le terrain ainsi qu'une butte pour la glissade avec tubes sur place. Si vous avez besoin de raquettes, nous en avons pour vous! Vous retrouverez également une fermette avec des petits animaux que vous pouvez aller saluer.<br></p>\n<p>Tout est inclus dans le chalet (literie et serviettes). Il ne manque que vous et vos effets personnels!</p>",
+      "latitude": 47.7255,
+      "longitude": -70.38449,
+      "address": " 295 Rue Principale",
+      "hide_address": false,
+      "zip": "G0T 1S0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/722bae15-5927-4ddd-b2a1-cca26ba4dadb.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 183.97109981268397,
+      "original_min_price": 275,
+      "max_price": 260.23548300776025,
+      "original_max_price": 389,
+      "rooms": [
+        {
+          "id": 634148,
+          "name": "Charlevoix - Chalet Le Refuge"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-04-01T21:13:55",
+      "updated_at": "2024-06-14T19:09:03",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    },
+    {
+      "id": 567443,
+      "name": "Charlevoix - Chalet DesPins",
+      "internal_name": null,
+      "description": "<p>Le chalet DesPins possède une vue dégagée sur les montagnes de la belle région de Charlevoix. Il offre toutes les commodités et le confort nécessaires pour un séjour de détente et d'activités en plein air. Venez profiter d'un site situé près des grands parcs nationaux et terminez votre soirée dans le spa sous les étoiles. Un spa privé 4 saisons en pleine nature s’offre à vous .  Un foyer intérieur et extérieur avec bois fourni raisonnablement ainsi qu'un bol à fondue électrique font partie des commodités du chalet. Vous y trouverez quatre chambres fermées dont une avec lit king, trois avec lits queen ainsi que deux salles de bains complètes. À proximité du chalet se trouve un petit lac baignable avec une plage. Plusieurs sentiers de raquette se trouvent sur le terrain ainsi qu'une butte pour la glissade avec tubes sur place. Si vous avez besoin de raquettes, nous en avons pour vous! À proximité du chalet, vous retrouverez une fermette avec des petits animaux que vous pouvez aller saluer.</p>\n<p>Tout est inclus dans le chalet (literie et serviettes). Il ne manque que vous et vos effets personnels!</p>",
+      "latitude": 47.7255,
+      "longitude": -70.38449,
+      "address": " 295 Rue Principale",
+      "hide_address": false,
+      "zip": "G0T 1S0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/f6416049-989d-4212-ad15-e236b983e1c4.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 193.33690125769334,
+      "original_min_price": 289,
+      "max_price": 234.14503612523416,
+      "original_max_price": 350,
+      "rooms": [
+        {
+          "id": 634149,
+          "name": "Charlevoix - Chalet DesPins"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-04-01T21:13:55",
+      "updated_at": "2024-06-14T19:01:59",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    },
+    {
+      "id": 567444,
+      "name": "Charlevoix  - Chalet DesJardins",
+      "internal_name": null,
+      "description": "<p>Le chalet Desjardins se trouve au milieu des bois en bordure d'un petit lac baignable dans la belle région de Charlevoix. Il possède toutes les commodités et le confort nécessaires pour un séjour de détente et d'activités en plein air. Venez profiter d'un site situé près des grands parcs nationaux et terminez votre soirée dans le spa sous les étoiles.  Un spa privé 4 saisons en pleine nature s’offre à vous ainsi qu'un sauna sec, fenestré sur l'extérieur.  Un foyer intérieur et extérieur avec bois fourni raisonnablement ainsi qu'un bol à fondue électrique font partie des commodités du chalet.  Vous y trouverez quatre chambres fermées avec lit king et deux salles de bains complètes. Plusieurs sentiers de raquette se trouvent sur le terrain ainsi qu'une butte pour la glissade avec tubes sur place. Si vous avez besoin de raquettes, nous en avons pour vous! À proximité du chalet, vous retrouverez une fermette avec des petits animaux que vous pouvez aller saluer. </p>\n<p>Tout est inclus dans le chalet (literie et serviettes). Il ne manque que vous et vos effets personnels!</p>\n<p><br>\n\n</p>\n<p><br></p>",
+      "latitude": 47.725571,
+      "longitude": -70.382881,
+      "address": " 295 Rue Principale",
+      "hide_address": false,
+      "zip": "G0T 1S0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/8a1dfd97-92b8-4dfc-8e54-6cfe5f818093.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 234.14503612523416,
+      "original_min_price": 350,
+      "max_price": 234.14503612523416,
+      "original_max_price": 350,
+      "rooms": [
+        {
+          "id": 634150,
+          "name": "Charlevoix  - Chalet DesJardins"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-04-01T21:13:55",
+      "updated_at": "2024-06-14T18:28:17",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    },
+    {
+      "id": 567445,
+      "name": "Charlevoix  - Chalet La Cabane",
+      "internal_name": null,
+      "description": "<p>Le chalet La Cabane se trouve au milieu des bois dans la belle région de Charlevoix. Il possède toutes les commodités et le confort nécessaires pour un séjour de détente et d'activités en plein air. Venez profiter d'un site situé près des grands parcs nationaux et terminez votre soirée dans le spa sous les étoiles. Un spa privé 4 saisons en pleine nature s’offre à vous.  Un foyer intérieur et extérieur avec bois fourni raisonnablement ainsi qu'un bol à fondue électrique font partie des commodités du chalet. Vous y trouverez quatre chambres fermées avec lit king et deux salles de bains complètes.  À proximité du chalet, se trouve un petit lac baignable avec une plage. Plusieurs sentiers de raquette se trouvent sur le terrain ainsi qu'une butte pour la glissade avec tubes sur place. Si vous avez besoin de raquettes, nous en avons pour vous! À proximité du chalet, vous retrouverez une fermette avec des petits animaux que vous pouvez aller saluer.<br></p>\n<p>Tout est inclus dans le chalet (literie et serviettes). Il ne manque que vous et vos effets personnels!</p>\n<p><br></p>\n<p><br></p>",
+      "latitude": 47.7255,
+      "longitude": -70.38449,
+      "address": " 295 Rue Principale",
+      "hide_address": false,
+      "zip": "G0T 1S0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/b534c81e-3394-4946-b105-d1db48b8afdc.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 200.6957452502007,
+      "original_min_price": 300,
+      "max_price": 234.14503612523416,
+      "original_max_price": 350,
+      "rooms": [
+        {
+          "id": 634151,
+          "name": "Charlevoix  - Chalet La Cabane"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-04-01T21:13:56",
+      "updated_at": "2024-06-14T19:02:26",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    },
+    {
+      "id": 567446,
+      "name": "Charlevoix - Chalet Le St-Germain",
+      "internal_name": null,
+      "description": "<p>Le chalet Le St-Germain se trouve au milieu des bois dans la belle région de Charlevoix. Il possède toutes les commodités et le confort nécessaires pour un séjour de détente et d'activités en plein air. Venez profiter d'un site situé près des grands parcs nationaux et terminez votre soirée dans le spa sous les étoiles. Un spa privé 4 saisons en pleine nature s’offre à vous. Un foyer intérieur et extérieur avec bois fourni raisonnablement ainsi qu'un bol à fondue électrique font partie des commodités du chalet. Vous y trouverez une chambres fermée avec lit king au rez-de-chaussé et un lit queen à la mezzanine accessible par une échelle ainsi qu'une salles de bain complète. À proximité du chalet, se trouve un petit lac baignable avec une plage. Plusieurs sentiers de raquette se trouvent sur le terrain ainsi qu'une butte pour la glissade avec tubes sur place. Si vous avez besoin de raquettes, nous en avons pour vous! À proximité du chalet, vous retrouverez une fermette avec des petits animaux que vous pouvez aller saluer.<br></p>\n<p>Tout est inclus dans le chalet (literie et serviettes). Il ne manque que vous et vos effets personnels!</p>",
+      "latitude": 47.7255,
+      "longitude": -70.38449,
+      "address": " 295 Rue Principale",
+      "hide_address": false,
+      "zip": "G0T 1S0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/7437bab0-d97d-4005-841c-9d4f6db8f5bd.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 147.17687985014717,
+      "original_min_price": 220,
+      "max_price": 147.17687985014717,
+      "original_max_price": 220,
+      "rooms": [
+        {
+          "id": 634152,
+          "name": "Charlevoix - Chalet Le St-Germain"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-04-01T21:13:56",
+      "updated_at": "2024-06-14T19:29:30",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    },
+    {
+      "id": 603102,
+      "name": "Charlevoix - Chalet La Cache",
+      "internal_name": "",
+      "description": "Le chalet La Cache, niché en montagne dans Charlevoix, offre tout le confort pour un séjour relaxant et actif en plein air. Profitez du spa privé 4 saisons, du foyer intérieur et des foyers extérieurs, avec bois fourni. Le chalet dispose de deux chambres avec lits king et deux salles de bain complètes. Un petit lac baignable, des sentiers de raquette et une butte pour la glissade sont à proximité. Tout est inclus; il ne manque que vous !",
+      "latitude": 47.725102,
+      "longitude": -70.382964,
+      "address": "295 Rue Principale",
+      "hide_address": false,
+      "zip": "G0T 1L0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/d3c0fcd1-1d41-4e5b-a8fb-f0426e84c180.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 143.83195076264383,
+      "original_min_price": 215,
+      "max_price": 234.14503612523416,
+      "original_max_price": 350,
+      "rooms": [
+        {
+          "id": 669893,
+          "name": "Charlevoix - Chalet La Cache"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-08-14T22:10:20",
+      "updated_at": "2024-08-14T22:10:32",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    },
+    {
+      "id": 604016,
+      "name": "Charlevoix - Chalet Le Nid",
+      "internal_name": "",
+      "description": "Le chalet La Cache, niché en montagne dans Charlevoix, offre tout le confort pour un séjour relaxant et actif en plein air. Profitez du spa privé 4 saisons, du foyer intérieur et des foyers extérieurs, avec bois fourni. Le chalet dispose de deux chambres avec lits king et deux salles de bain complètes. Un petit lac baignable, des sentiers de raquette et une butte pour la glissade sont à proximité. Tout est inclus; il ne manque que vous !",
+      "latitude": 47.725102,
+      "longitude": -70.382964,
+      "address": "295 Rue Principale",
+      "hide_address": false,
+      "zip": "G0T 1L0",
+      "city": "Saint-Aimé-des-Lacs",
+      "state": "Quebec",
+      "country": "Canada",
+      "image_url": "//l.icdbcdn.com/oh/b5573995-7320-4c75-b3ad-cfc91ab8827e.jpg?f=32",
+      "has_addons": false,
+      "has_agreement": false,
+      "agreement_text": null,
+      "agreement_url": null,
+      "contact": {
+        "spoken_languages": [
+          "EN",
+          "FR"
+        ]
+      },
+      "rating": 0,
+      "price_unit_in_days": 1,
+      "min_price": 143.83195076264383,
+      "original_min_price": 215,
+      "max_price": 254.2146106502542,
+      "original_max_price": 380,
+      "rooms": [
+        {
+          "id": 670811,
+          "name": "Charlevoix - Chalet Le Nid"
+        }
+      ],
+      "in_out_max_date": "0001-01-01",
+      "in_out": null,
+      "currency_code": "CAD",
+      "created_at": "2024-08-19T21:39:37",
+      "updated_at": "2024-08-19T22:00:56",
+      "is_active": true,
+      "subscription_plans": [
+        "Professional"
+      ]
+    }
+  ]
+}

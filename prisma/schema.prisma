@@ -1,0 +1,49 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id            Int          @id @default(autoincrement())
+  email         String       @unique
+  name          String?      @db.VarChar(255)
+  integrationId Int?
+  integration   Integration? @relation(fields: [integrationId], references: [id]) // foreign key to Integration table
+  accessToken   String? //encrypted
+  ApiKey        String? //encrypted
+  AppKey        String? //encrypted
+  createdAt     DateTime     @default(now()) // timestamp for record creation
+  updatedAt     DateTime     @updatedAt // timestamp for last update
+  channelID     String // Lodgify Or Guesty userID 
+  styleId       Int?
+  style         Style?       @relation(fields: [styleId], references: [id])
+
+  @@index([styleId])// Index on styleId for improved query performance
+}
+
+model Integration {
+  id        Int      @id @default(autoincrement())
+  title     String   @unique // Lodgify or Guesty
+  users     Client[] // one-to-many relationship with User
+  createdAt DateTime @default(now()) // timestamp for record creation
+  updatedAt DateTime @updatedAt // timestamp for last update
+}
+
+model Style {
+  id             Int    @id @default(autoincrement())
+  primaryColor   String
+  secondaryColor String
+  primaryFront   String
+  secondaryFront String
+  users          Client[] // one-to-many relationship with User
+}
