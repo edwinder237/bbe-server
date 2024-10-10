@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authMiddleware } from '../guesty/auth/authMiddleware'; // Ensure the path is correct
-import { fetchAccessToken } from '../guesty/auth/authMiddleware';
+import { authMiddleware } from './auth/authMiddleware'; // Ensure the path is correct
+import { fetchAccessToken } from './auth/authMiddleware';
 
 const GUESTY_API_URL = 'https://booking.guesty.com/api/v1/listings'; // Change to the relevant endpoint
 

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { corsMiddleware } from '../corsMiddleware';
+import { corsMiddleware } from '../api/corsMiddleware';
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -17,4 +17,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error("Error fetching users:", error);
     throw error; // Re-throw the error or handle it accordingly
   }
+
 }
