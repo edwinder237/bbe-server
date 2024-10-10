@@ -12,7 +12,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://main_owner:4NAZbeMTlnp9@ep-shy-feather-a5fuqa29-pooler.us-east-2.aws.neon.tech/main?sslmode=require"
+  url      = env("DATABASE_URL")
 }
 
 model Client {
