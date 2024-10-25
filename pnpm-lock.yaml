@@ -17,9 +17,21 @@ importers:
       '@prisma/client':
         specifier: 5.20.0
         version: 5.20.0(prisma@5.20.0)
+      '@vercel/kv':
+        specifier: ^3.0.0
+        version: 3.0.0
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
+      dayjs:
+        specifier: ^1.11.13
+        version: 1.11.13
       dotenv:
         specifier: ^16.4.5
         version: 16.4.5
+      node-fetch:
+        specifier: ^3.3.2
+        version: 3.3.2
       ws:
         specifier: ^8.18.0
         version: 8.18.0
@@ -161,11 +173,18 @@ packages:
   '@types/pg@8.11.6':
     resolution: {integrity: sha512-/2WmmBXHLsfRqzfHW7BNZ8SbYzE8OSk7i3WjFYvfgRHj7S1xj+16Je5fUKv3lVdVzk/zn9TXOqf+avFCFIE0yQ==}
 
+  '@upstash/redis@1.34.3':
+    resolution: {integrity: sha512-VT25TyODGy/8ljl7GADnJoMmtmJ1F8d84UXfGonRRF8fWYJz7+2J6GzW+a6ETGtk4OyuRTt7FRSvFG5GvrfSdQ==}
+
   '@vercel/build-utils@6.8.3':
     resolution: {integrity: sha512-C86OPuPAvG/pSr27DPKecmptkYYsgyhOKdHTLv9jI3Pv1yvru78k+JjrAyn7N+0ev75KNV0Prv4P3p76168ePw==}
 
   '@vercel/error-utils@1.0.10':
     resolution: {integrity: sha512-nsKy2sy+pjUWyKI1V/XXKspVzHMYgSalmj5+EsKWFXZbnNZicqxNtMR94J8Hs7SB4TQxh0s4KhczJtL59AVGMg==}
+
+  '@vercel/kv@3.0.0':
+    resolution: {integrity: sha512-pKT8fRnfyYk2MgvyB6fn6ipJPCdfZwiKDdw7vB+HL50rjboEBHDVBEcnwfkEpVSp2AjNtoaOUH7zG+bVC/rvSg==}
+    engines: {node: '>=14.6'}
 
   '@vercel/node@2.15.10':
     resolution: {integrity: sha512-IfnqnKAJlL1+0FSDJgxoe9J3kfYAgPGDjz4aO/H5FSjvqP7cKJnns1F9GsQq4pM499+TY8T8mKAdos7/m+WOEw==}
@@ -225,6 +244,19 @@ packages:
 
   create-require@1.1.1:
     resolution: {integrity: sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==}
+
+  crypto-js@4.2.0:
+    resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
+
+  data-uri-to-buffer@4.0.1:
+    resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
+    engines: {node: '>= 12'}
+
+  date-fns@4.1.0:
+    resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
+
+  dayjs@1.11.13:
+    resolution: {integrity: sha512-oaMBel6gjolK862uaPQOVTA7q3TZhuSvuMQAAglQDOWYO9A91IrAOUJEyKVlqJlHE0vq5p5UXxzdPfMH/x6xNg==}
 
   delayed-stream@1.0.0:
     resolution: {integrity: sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==}
@@ -382,6 +414,10 @@ packages:
   fastq@1.17.1:
     resolution: {integrity: sha512-sRVD3lWVIXWg6By68ZN7vho9a1pQcN/WBFaAAsDDFzlJjvoGx0P8z7V1t72grFJfJhu3YPZBuu25f7Kaw2jN1w==}
 
+  fetch-blob@3.2.0:
+    resolution: {integrity: sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==}
+    engines: {node: ^12.20 || >= 14.13}
+
   fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
     engines: {node: '>=8'}
@@ -389,6 +425,10 @@ packages:
   form-data@3.0.1:
     resolution: {integrity: sha512-RHkBKtLWUVwd7SqRIvCZMEvAMoGUp0XU+seQiZejj0COz3RI3hWP4sCv3gZWWLjJTd7rGwcsF5eKZGii0r/hbg==}
     engines: {node: '>= 6'}
+
+  formdata-polyfill@4.0.10:
+    resolution: {integrity: sha512-buewHzMvYL29jdeQTVILecSaZKnt/RJWjoZCF5OW60Z67/GmSLBkOFM7qh1PI3zFNtJbaZL5eQu1vLfazOwj4g==}
+    engines: {node: '>=12.20.0'}
 
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
@@ -448,6 +488,10 @@ packages:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
     engines: {node: '>=4'}
 
+  node-domexception@1.0.0:
+    resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
+    engines: {node: '>=10.5.0'}
+
   node-fetch@2.6.9:
     resolution: {integrity: sha512-DJm/CJkZkRjKKj4Zi4BsKVZh3ValV5IR5s7LVZnW+6YMh0W1BfNA8XSs6DLMGYlId5F3KnA70uu2qepcR08Qqg==}
     engines: {node: 4.x || >=6.0.0}
@@ -456,6 +500,10 @@ packages:
     peerDependenciesMeta:
       encoding:
         optional: true
+
+  node-fetch@3.3.2:
+    resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   obuf@1.1.2:
     resolution: {integrity: sha512-PX1wu0AmAdPqOL1mWhqmlOd8kOIZQwGZw6rh7uby9fTc5lhaOWFLX3I6R1hrF9k3zUY40e6igsLGkDXK92LJNg==}
@@ -595,6 +643,10 @@ packages:
 
   v8-compile-cache-lib@3.0.1:
     resolution: {integrity: sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg==}
+
+  web-streams-polyfill@3.3.3:
+    resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
+    engines: {node: '>= 8'}
 
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
@@ -738,9 +790,17 @@ snapshots:
       pg-protocol: 1.7.0
       pg-types: 4.0.2
 
+  '@upstash/redis@1.34.3':
+    dependencies:
+      crypto-js: 4.2.0
+
   '@vercel/build-utils@6.8.3': {}
 
   '@vercel/error-utils@1.0.10': {}
+
+  '@vercel/kv@3.0.0':
+    dependencies:
+      '@upstash/redis': 1.34.3
 
   '@vercel/node@2.15.10':
     dependencies:
@@ -816,6 +876,14 @@ snapshots:
   convert-hrtime@3.0.0: {}
 
   create-require@1.1.1: {}
+
+  crypto-js@4.2.0: {}
+
+  data-uri-to-buffer@4.0.1: {}
+
+  date-fns@4.1.0: {}
+
+  dayjs@1.11.13: {}
 
   delayed-stream@1.0.0: {}
 
@@ -934,6 +1002,11 @@ snapshots:
     dependencies:
       reusify: 1.0.4
 
+  fetch-blob@3.2.0:
+    dependencies:
+      node-domexception: 1.0.0
+      web-streams-polyfill: 3.3.3
+
   fill-range@7.1.1:
     dependencies:
       to-regex-range: 5.0.1
@@ -943,6 +1016,10 @@ snapshots:
       asynckit: 0.4.0
       combined-stream: 1.0.8
       mime-types: 2.1.35
+
+  formdata-polyfill@4.0.10:
+    dependencies:
+      fetch-blob: 3.2.0
 
   fsevents@2.3.3:
     optional: true
@@ -989,9 +1066,17 @@ snapshots:
 
   mri@1.2.0: {}
 
+  node-domexception@1.0.0: {}
+
   node-fetch@2.6.9:
     dependencies:
       whatwg-url: 5.0.0
+
+  node-fetch@3.3.2:
+    dependencies:
+      data-uri-to-buffer: 4.0.1
+      fetch-blob: 3.2.0
+      formdata-polyfill: 4.0.10
 
   obuf@1.1.2: {}
 
@@ -1105,6 +1190,8 @@ snapshots:
       punycode: 2.3.1
 
   v8-compile-cache-lib@3.0.1: {}
+
+  web-streams-polyfill@3.3.3: {}
 
   webidl-conversions@3.0.1: {}
 

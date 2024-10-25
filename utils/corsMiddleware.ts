@@ -1,10 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export const corsMiddleware = (req: VercelRequest, res: VercelResponse) => {
-  // Allow all origins by setting CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  const allowedOrigins = ['http://localhost:8087', 'http://localhost:3000'];
+  const origin = req.headers.origin; // May be undefined if not present
+
+  // Check if the request's origin is allowed
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  } else {
+    // Optionally handle the case where the origin is not allowed
+    console.warn(`Origin not allowed:', ${origin} host:${req?.headers?.host}`);
+  }
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {

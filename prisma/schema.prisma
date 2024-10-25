@@ -1,12 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
-    binaryTargets = ["native", "rhel-openssl-1.0.x"]
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "rhel-openssl-1.0.x"]
   previewFeatures = ["driverAdapters"]
 }
 
@@ -17,35 +14,52 @@ datasource db {
 
 model Client {
   id            Int          @id @default(autoincrement())
+  cuid          String?       @unique @default(cuid())   
   email         String       @unique
   name          String?      @db.VarChar(255)
   integrationId Int?
-  integration   Integration? @relation(fields: [integrationId], references: [id]) // foreign key to Integration table
-  accessToken   String? //encrypted
-  ApiKey        String? //encrypted
-  AppKey        String? //encrypted
-  createdAt     DateTime     @default(now()) // timestamp for record creation
-  updatedAt     DateTime     @updatedAt // timestamp for last update
-  channelID     String // Lodgify Or Guesty userID 
+  integration   Integration? @relation(fields: [integrationId], references: [id]) // Foreign key to Integration table
+  accessToken   String?      // Encrypted
+  tokenExpire   Int?         // For Guesty only
+  clientID      String?      // Encrypted for Guesty only
+  clientSecret  String?      // Encrypted for Guesty only
+  ApiKey        String?      // Encrypted for Lodgify only
+  AppKey        String?      // Encrypted for Lodgify only
+  createdAt     DateTime     @default(now()) // Timestamp for record creation
+  updatedAt     DateTime     @updatedAt      // Timestamp for last update
+  channelID     String       // Lodgify or Guesty userID
   styleId       Int?
   style         Style?       @relation(fields: [styleId], references: [id])
+  siteUrl       SiteUrl?
+  mainLogo      String?
+  stateLocation String?
 
-  @@index([styleId])// Index on styleId for improved query performance
+  @@index([styleId]) // Index on styleId for improved query performance
 }
 
 model Integration {
   id        Int      @id @default(autoincrement())
   title     String   @unique // Lodgify or Guesty
-  users     Client[] // one-to-many relationship with User
-  createdAt DateTime @default(now()) // timestamp for record creation
-  updatedAt DateTime @updatedAt // timestamp for last update
+  users     Client[] // One-to-many relationship with Client
+  createdAt DateTime @default(now()) // Timestamp for record creation
+  updatedAt DateTime @updatedAt      // Timestamp for last update
 }
 
 model Style {
-  id             Int    @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   primaryColor   String
   secondaryColor String
   primaryFront   String
   secondaryFront String
-  users          Client[] // one-to-many relationship with User
+  users          Client[] // One-to-many relationship with Client
+}
+
+model SiteUrl {
+  id        Int    @id @default(autoincrement())
+  clientId  Int
+  client    Client @relation(fields: [clientId], references: [id])
+  url       String @default("")
+  isActive  Boolean @default(false)
+
+  @@unique([clientId])
 }

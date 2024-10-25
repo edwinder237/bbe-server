@@ -12,7 +12,11 @@
     "@neondatabase/serverless": "^0.10.1",
     "@prisma/adapter-neon": "^5.20.0",
     "@prisma/client": "5.20.0",
+    "@vercel/kv": "^3.0.0",
+    "date-fns": "^4.1.0",
+    "dayjs": "^1.11.13",
     "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2",
     "ws": "^8.18.0"
   },
   "scripts": {
