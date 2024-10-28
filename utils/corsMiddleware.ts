@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export const corsMiddleware = (req: VercelRequest, res: VercelResponse) => {
-  const allowedOrigins = ['http://localhost:8087', 'http://localhost:3000'];
+  const allowedOrigins = ['http://localhost:8087', 'http://localhost:3000','https://bbe-server-edwinder237s-projects.vercel.app'];
   const origin = req.headers.origin; // May be undefined if not present
 
   // Check if the request's origin is allowed

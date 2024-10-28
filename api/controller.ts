@@ -190,13 +190,57 @@ const routes = {
 const routesLodgify = {
     fetchLodgifyListings: async (keys: keysType, params?: any) =>
         fetchLodgifyData(
-            `https://api.lodgify.com/v2/properties?includeCount=${false}&includeInOut=${false}&page=1&size=${50}`,
+            `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=1&size=${50}`,
             keys,
             "fetchLodgifyListings"
         ),
+    fetchLodgifyListingsBETA: async () => {
+        const options = {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json; charset=utf-8",
+                "Accept": "*/*",
+                "Accept-Encoding": "gzip, deflate, br, zstd",
+
+
+                //must be changed
+                "Accept-Language": "En",
+                //must be changed
+                "Origin": "https://goldstarvacation.lodgify.com",
+                //must be changed
+                "Referer": "https://goldstarvacation.lodgify.com",
+
+
+                "Sec-CH-UA": '"Google Chrome";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
+                "Sec-CH-UA-Mobile": "?0",
+                "Sec-CH-UA-Platform": '"macOS"',
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-site",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+                "Priority": "u=1, i"
+            },
+            // Add an empty body if needed
+            body: JSON.stringify({}),
+        };
+
+        try {
+            const response = await fetch("https://api.lodgify.com/v2/search/311391", options);
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching Lodgify listings:", error);
+            throw error;
+        }
+    }
+    ,
     fetchLodgifyListingDetails: async (keys: keysType, params: any) =>
         fetchLodgifyData(
-            `https://api.lodgify.com/v2/properties/${params.listingId}?includeInOut=true`,
+            `https://api.lodgify.com/v1/properties/${params.listingId}?includeInOut=true`,
             keys,
             "fetchLodgifyListingDetails"
         ),
@@ -206,12 +250,12 @@ const routesLodgify = {
             keys,
             "fetchLodgifyListingDetailsBETA"
         ),
-    fetchLodgifyListingInfo: async (keys: keysType, roomId: number, params?: any) =>
-        fetchLodgifyData(
-            `https://api.lodgify.com/v1/properties/${parseInt(params.listingId)}/rooms/${roomId}`,
+    fetchLodgifyListingInfo: async (keys: keysType, roomId: number, params?: any) =>{
+        return fetchLodgifyData(
+            `https://api.lodgify.com/v1/properties/${310932}/rooms/${375943}`,
             keys,
             "fetchLodgifyListingInfo"
-        ),
+        )},
     fetchLodgifyListingQuoteBeta: async (keys: keysType, params?: any) => {
         const { listingId, quote, lodgifyParams } = params;
         const {
@@ -235,9 +279,21 @@ const routesLodgify = {
         const fromDateISO = dayjs(fromDate).toISOString();
         const toDateISO = dayjs(toDate).toISOString();
         return fetchLodgifyData(
-            `https://api.lodgify.com/v1/availability/${params.listingId}?periodStart=${fromDateISO}&periodEnd=${toDateISO}`,
+            `https://api.lodgify.com/v1/availability/${listingId}?periodStart=${fromDateISO}&periodEnd=${toDateISO}`,
             keys,
             "fetchLodgifyListingAvailabilities"
+        )
+    },
+
+    fetchLodgifyListingsDates: async (keys: keysType, params?: any) => {
+        const { availabilities } = params;
+        const { fromDate, toDate } = availabilities;
+        const fromDateISO = dayjs(fromDate).toISOString();
+        const toDateISO = dayjs(toDate).toISOString();
+        return fetchLodgifyData(
+            `https://api.lodgify.com/v1/availability?periodStart=${fromDateISO}&periodEnd=${toDateISO}`,
+            keys,
+            "fetchLodgifyListingsDates"
         )
     }
 
@@ -374,14 +430,90 @@ const actions = {
         const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
 
         try {
-            const [listings] = await Promise.all([
+            const [listings, additionalData] = await Promise.all([
                 routesLodgify.fetchLodgifyListings(keysObject),
+                routesLodgify.fetchLodgifyListingsBETA(),
 
             ]);
 
             const coverted_listings = listings.items.filter((lst) => lst.is_active).map((listing: lodgify_listings) => new ListingConverter(listing).convert());
+            const cities = {
+                results: coverted_listings.map((i) => ({
+                    city: i.address.city,
+                    state: i.address.state,
+                    country: i.address.country
+                }))
+                    .filter((value, index, self) =>
+                        index === self.findIndex((t) =>
+                            t.city === value.city && t.state === value.state
+                        )
+                    )
 
-            return { coverted_listings }; // Return listings and cities only
+            }
+            const listingExtraData = additionalData.data.items
+            return { coverted_listings, cities, listingExtraData }; // Return listings and cities only
+        } catch (error) {
+            console.error("Error fetching listings or cities:", error.message);
+            throw new Error(`Fetching failed: ${error.message}`);
+        }
+    },
+
+    getLodgify_Listings_search: async (internal_ID: string, params: ParamsAvailabilitiesType) => {
+        const keys = await getLodgifyKeys(internal_ID);
+
+
+
+        const { ApiKey, AppKey } = keys.client;
+
+        if (!ApiKey || !AppKey) {
+            throw new Error("Missing Lodgify API keys");
+        }
+        const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
+
+        try {
+            const [AvailableListings, listings] = await Promise.all([
+                //Fectch Availabilities and pass search params
+                routesLodgify.fetchLodgifyListingsDates(keysObject, params),
+                //run fetchLodgifyListings and 
+                routesLodgify.fetchLodgifyListings(keysObject),
+
+            ]);
+            const { fromDate, toDate } = params.availabilities;
+
+            const START = dayjs(fromDate).format('YYYY-MM-DD');
+            const END = dayjs(toDate).format('YYYY-MM-DD');
+
+            // Step 1: Filter AvailableListings directly for properties bookable within selected dates
+            const availableIds = new Set(
+                AvailableListings
+                    .filter(listing => listing.is_available && listing.period_start === START && listing.period_end === END)
+                    .map(listing => listing.property_id)
+            );
+
+            // Step 2: Convert listings to FRONTEND format and filter active listings in one pass
+            const filteredListings = listings.items.reduce((acc, lst) => {
+                if (lst.is_active && availableIds.has(lst.id)) {
+                    acc.push(new ListingConverter(lst).convert());
+                }
+                return acc;
+            }, []);
+            console.log(fromDate, toDate)
+            console.log(availableIds)
+
+            const cities = {
+                results: filteredListings.map((i) => ({
+                    city: i.address.city,
+                    state: i.address.state,
+                    country: i.address.country
+                }))
+                    .filter((value, index, self) =>
+                        index === self.findIndex((t) =>
+                            t.city === value.city && t.state === value.state
+                        )
+                    )
+
+            }
+            return { filteredListings };
         } catch (error) {
             console.error("Error fetching listings or cities:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
@@ -435,10 +567,9 @@ const actions = {
             const Info = new client_lodgiy_listing_info_Converter(info as Room_info_in_a_property_by_id);
             const listing_info = Info.convert()
             const singleListingObject = listing.convert();
-
             const singleListing = { ...singleListingObject, ...listing_info }
 
-            return { singleListing, availabilities, quote };
+            return { singleListing, availabilities, quote,singleListingObject };
         } catch (error) {
             console.error(
                 "Error fetching listing details :",

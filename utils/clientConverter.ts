@@ -33,9 +33,9 @@ export class ListingConverter {
       nickname: "",
       featuredImage: this.input.image_url,
       galleryImgs: this.getGalleryImages(),
-      commentCount: 0, // Assuming no comment data available, you can adjust
-      viewCount: 0, // Assuming no view count data available, you can adjust
-      like: false, // Assuming no like info available, you can adjust
+      commentCount: 0, 
+      viewCount: 0, 
+      like: false, 
       address: {
         full: this.input.address,
         city: this.input.city,
@@ -49,26 +49,11 @@ export class ListingConverter {
       reviewStart: this.input.rating,
       reviewCount: this.getReviewCount(),
       price: this.formatPrice(),
-      maxGuests: this.calculateMaxGuests(),
-      bedrooms: this.input.rooms.length, // Assuming each room is a bedroom
-      bathrooms: 1, // Placeholder value; adjust based on data
+      maxGuests: 0,
+      bedrooms: 0, 
+      bathrooms: 0, 
       saleOff: "", // Assuming no sale info, adjust if available
       isAds: false, // Assuming no ad flag, adjust if available
-      author: {
-        id: 10, // Static value, adjust based on your logic
-        firstName: "Mimi", // Static value, adjust based on your logic
-        lastName: "Fones", // Static value, adjust based on your logic
-        displayName: "Fones Mimi", // Static value, adjust based on your logic
-        email: "mfones9@canalblog.com", // Static value, adjust based on your logic
-        gender: "Agender", // Static value, adjust based on your logic
-        avatar: "/static/media/Image-10.93048ca791076288cf69.png", // Placeholder
-        count: 111, // Static value, adjust based on your logic
-        href: "/author", // Static value
-        desc: "There’s no stopping the tech giant. Apple now opens its 100th store in China.", // Placeholder
-        jobName: "Author Job", // Placeholder
-        bgImage:
-          "https://images.pexels.com/photos/5966631/pexels-photo-5966631.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
-      }
     };
   }
 
@@ -79,7 +64,7 @@ export class ListingConverter {
 
   // Helper method to format price as a string
   private formatPrice(): string {
-    return `${this.input.min_price.toFixed(2)} ${this.input.currency_code}`;
+    return `${this.input.original_min_price.toFixed(2)} ${this.input.currency_code}`;
   }
 
   // Helper method to calculate max guests (assuming 2 guests per room)
@@ -243,6 +228,8 @@ export class client_lodgiy_listing_detail_V2_Converter {
     return {
       id: this.input.id.toString(),
       title: this.input.name,
+      bathrooms: this.input.rooms[0]?.bathrooms,
+      bedrooms: this.input.rooms[0]?.bedrooms,
       publicDescription: {
         transit: "" ,
         neighborhood:"",
@@ -316,9 +303,8 @@ export class client_lodgiy_listing_detail_Converter {
         state: this.input.addressInfo.stateProvince ,
         street: "",
     },
-      bathrooms: this.input.keyFacts.bathrooms,
-      bedrooms: this.input.keyFacts.bedrooms,
-      beds: 0,
+      bathrooms: this.input.rooms[0]?.bathrooms,
+      bedrooms: this.input.rooms[0]?.bedrooms,
       accommodates: this.input.keyFacts.maxGuests,
       amenities: this.amenitiesConvert(),
     };

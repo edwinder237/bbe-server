@@ -7,9 +7,10 @@ import { corsMiddleware } from '../utils/corsMiddleware';
     // Call the CORS middleware
     const isPreflight = corsMiddleware(req, res);
     if (isPreflight) return; // If preflight was handled, exit early
-    console.log(process.env.DATABASE_URL); 
+
     // Handle the main request
     const { name = 'World' } = req.query;
+    console.log("Back-End CALLED")
     return res.json({
       message: `Hello ${name}!`,
     });

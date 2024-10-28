@@ -66,6 +66,27 @@ export type Property_info_by_Id_includeInOut = {
   rooms: {
     id: number;
     name: string;
+    image_url: string; // URL of the room image
+    max_people: number; // Maximum occupancy
+    units: number; // Number of units
+    has_wifi: boolean; // Indicates if the room has Wi-Fi
+    has_meal_plan: boolean; // Indicates if the room includes a meal plan
+    bedrooms: number; // Number of bedrooms
+    bathrooms: number; // Number of bathrooms
+    area_unit: string; // Unit of area measurement (e.g., "sqf")
+    area: number; // Area size of the room
+    min_price: number; // Minimum price
+    original_min_price: number; // Original minimum price
+    max_price: number; // Maximum price
+    original_max_price: number; // Original maximum price
+    price_unit_in_days: number; // Number of days the price covers
+    currency: {
+      id: number; // Currency ID
+      code: string; // Currency code (e.g., "USD")
+      name: string; // Name of the currency
+      euro_forex: number; // Forex rate in Euro
+      symbol: string; // Currency symbol (e.g., "$")
+    };
   }[];
   in_out_max_date: string;
   in_out: {
@@ -88,6 +109,7 @@ export type Property_info_by_Id_includeInOut = {
   updated_at: string; // or Date depending on usage
   is_active: boolean;
   subscription_plans: string[];
+
 };
 export type Lodgify_Listing_Details = {
   addressInfo: {
@@ -137,6 +159,31 @@ export type Lodgify_Listing_Details = {
   hasPromotions: boolean; // Indicates if there are promotions
   hasMultipleRoomTypesEnabled: boolean; // Indicates if multiple room types are enabled
   propertyMaxGuests: number; // Maximum guests for the property
+  rooms: Array<{
+    id: number; // Room ID
+    name: string; // Room name
+    image_url: string; // URL of the room image
+    max_people: number; // Maximum occupancy
+    units: number; // Number of units
+    has_wifi: boolean; // Indicates if the room has Wi-Fi
+    has_meal_plan: boolean; // Indicates if the room includes a meal plan
+    bedrooms: number; // Number of bedrooms
+    bathrooms: number; // Number of bathrooms
+    area_unit: string; // Unit of area measurement (e.g., "sqf")
+    area: number; // Area size of the room
+    min_price: number; // Minimum price
+    original_min_price: number; // Original minimum price
+    max_price: number; // Maximum price
+    original_max_price: number; // Original maximum price
+    price_unit_in_days: number; // Number of days the price covers
+    currency: {
+      id: number; // Currency ID
+      code: string; // Currency code (e.g., "USD")
+      name: string; // Name of the currency
+      euro_forex: number; // Forex rate in Euro
+      symbol: string; // Currency symbol (e.g., "$")
+    };
+  }>;
   reviews: {
     total: number; // Total number of reviews
     averageRating: number; // Average rating
@@ -540,7 +587,7 @@ export type listings_search_client = {
   bathrooms: number;
   saleOff: string;
   isAds: boolean;
-  author: {
+  author?: {
     id: number;
     firstName: string;
     lastName: string;
