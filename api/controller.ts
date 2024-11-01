@@ -2,44 +2,36 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { corsMiddleware } from "../utils/corsMiddleware";
 import getAuth from "../utils/getAuth";
 import { handleFetch } from "../utils/handleFetching";
-
-
+import dayjs from "dayjs"
 import { getLodgifyKeys } from "../utils/tokenServiceCaching";
-
 import {
     GuestyConverter,
     client_listing_detail_Converter,
     ListingConverter,
-    client_lodgiy_listing_detail_Converter,
     client_lodgiy_listing_info_Converter,
-    client_lodgiy_listing_detail_V2_Converter,
-    //listing_quote_client
+    LODGIFY_DETAILS_BETA_TO_LISTING_DETAILS_FORMAT,
+    LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT,
+    //listing_quote_client,
+    LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE,
+    LODGIFY_DETAILS_TO_LISTING_DETAILS_FORMAT
 } from "../utils/clientConverter";
 
 import {
     lodgify_listings,
     guesty_listings,
     guesty_listing_details,
-    Lodgify_Listing_Details,
+    Lodgify_Listing_Details_BETA,
     Property_info_by_Id_includeInOut,
     Room_info_in_a_property_by_id,
-    lodgify_quote_beta
+    lodgify_quote_beta,
+    lodgify_listings_details
+
 
 
 } from "../utils/types";
-import dayjs from "dayjs"
 
 
 
-// Convert each listing to Client Requirement
-//   const convertedListings = data.map((listing: lodgify_listings) => {
-//     const converter = new ListingConverter(listing);
-//   return converter.convert();
-// });
-
-//const convertedListings = (responseData: Lodgify_Listing_Details) => 
-//  new client_lodgiy_listing_detail_Converter(responseData).convert();
-//const detailsPage = convertedListings(responseData)
 
 
 interface ParamsListingDetailsType {
@@ -67,6 +59,21 @@ interface ParamsQuoteType {
     };
 }
 
+interface ParamsDatesSearchType {
+    listingId: string;
+    search: {
+        guestsCount?: number
+        checkInDateLocalized: string;
+        checkOutDateLocalized: string;
+        location?: {
+            city: string | "";
+            state: string | "";
+            country: string | "";
+        }
+
+    };
+}
+
 interface ParamsAvailabilitiesType {
     listingId: string; // Required
     availabilities: {
@@ -74,6 +81,10 @@ interface ParamsAvailabilitiesType {
         fromDate: string;
         toDate: string;
     };
+}
+interface ParamsNextPageType {
+
+    nextPage: string
 }
 
 interface keysType {
@@ -121,12 +132,66 @@ const fetchLodgifyData = async (
 };
 // Define your routes with robust error handling
 const routes = {
-    fetchGuestyListings: async (token: string) =>
-        fetchGuestyData(
-            "https://booking.guesty.com/api/listings",
+    fetchGuestyListings: async (token: string) => {
+        const response = await fetchGuestyData(
+            "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=9",
             token,
             "fetchGuestyListings"
-        ),
+        )
+
+        return response
+
+    },
+    fetchGuestyNextPage: async (token: string,params:ParamsNextPageType) => {
+        const {nextPage} = params;
+    
+        const response = await fetchGuestyData(
+            `https://booking.guesty.com/api/listings?cursor=${nextPage}&limit=9`,
+            token,
+            "fetchGuestyNextPage"
+        )
+        
+        const coverted_listings = response.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
+      
+        return { filteredListings: coverted_listings,pagination:response.pagination.cursor.next };
+
+    },
+    fetchGuestyListingsDates: async (token: string, params: ParamsDatesSearchType) => {
+        const { location } = params.search;
+        const { guestsCount, checkInDateLocalized, checkOutDateLocalized } = params.search;
+
+        // Format dates using dayjs
+        const checkIn = dayjs(checkInDateLocalized).format("YYYY-MM-DD");
+        const checkOut = dayjs(checkOutDateLocalized).format("YYYY-MM-DD");
+
+        // Extract location details
+        const city = location?.city;
+        const state = location?.state;
+        const country = location?.country;
+
+        // Build the base URL and append parameters conditionally
+        let url = `https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&checkIn=${checkIn}&checkOut=${checkOut}&limit=9`;
+
+        if (city) {
+            url += `&city=${encodeURIComponent(city)}`;
+        }
+        if (state) {
+            url += `&state=${encodeURIComponent(state)}`;
+        }
+        if (country) {
+            url += `&country=${encodeURIComponent(country)}`;
+        }
+
+        console.log(`Fetching listings with URL: ${url}`);
+
+        // Fetch data using the constructed URL
+        const searchResult = await fetchGuestyData(url, token, "fetchGuestyListingsDates");
+
+        const listings = await searchResult;
+        const coverted_listings = listings.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
+
+        return { filteredListings: coverted_listings };
+    },
     fetchGuestyCities: async (token: string) =>
         fetchGuestyData(
             "https://booking.guesty.com/api/listings/cities",
@@ -159,7 +224,7 @@ const routes = {
                 checkInDateLocalized: params.quote.checkInDateLocalized,
                 checkOutDateLocalized: params.quote.checkOutDateLocalized,
                 listingId: params.listingId,
-                coupons: params.quote.coupons,
+                coupons: params.quote?.coupons,
             }),
         };
 
@@ -240,7 +305,7 @@ const routesLodgify = {
     ,
     fetchLodgifyListingDetails: async (keys: keysType, params: any) =>
         fetchLodgifyData(
-            `https://api.lodgify.com/v1/properties/${params.listingId}?includeInOut=true`,
+            `https://api.lodgify.com/v1/properties/${params.listingId}?includeInOut=false`,
             keys,
             "fetchLodgifyListingDetails"
         ),
@@ -250,26 +315,43 @@ const routesLodgify = {
             keys,
             "fetchLodgifyListingDetailsBETA"
         ),
-    fetchLodgifyListingInfo: async (keys: keysType, roomId: number, params?: any) =>{
+    fetchLodgifyListingInfo: async (keys: keysType, params: any, roomId?: number) => {
+        console.log(params)
+        const { listingId } = params;
         return fetchLodgifyData(
-            `https://api.lodgify.com/v1/properties/${310932}/rooms/${375943}`,
+            `https://api.lodgify.com/v1/properties/${listingId}/rooms/${375943}`,
             keys,
             "fetchLodgifyListingInfo"
-        )},
+        )
+    },
     fetchLodgifyListingQuoteBeta: async (keys: keysType, params?: any) => {
-        const { listingId, quote, lodgifyParams } = params;
-        const {
-            checkInDateLocalized,
-            checkOutDateLocalized,
-            guestsCount,
-            currency,
-        } = quote;
+        const { listingId, quote } = params;
+        const { checkInDateLocalized, checkOutDateLocalized, guestsCount, currency } = quote;
 
-        return fetchLodgifyData(
-            `https://checkout.lodgify.com/api/v1/checkout/price?propertyId=${listingId}&arrival=${checkInDateLocalized}&departure=${checkOutDateLocalized}&guests=${guestsCount}&currency=${currency}`,
-            keys,
-            "fetchLodgifyListingQuoteBeta"
-        );
+        const QuoteData = async () => {
+            try {
+                const response = await fetch(
+                    `https://checkout.lodgify.com/api/v1/checkout/price?propertyId=${listingId}&arrival=${checkInDateLocalized}&departure=${checkOutDateLocalized}&guests=${guestsCount}&currency=${currency}`
+                );
+
+                const data = await response.json();
+
+                if (response.status === 400) {
+                    throw new Error(`Error ${response.status}: ${data.title || response.statusText}`);
+                }
+
+
+                const QUOTE = new LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE(data);
+                const CONVERTED_QUOTE = QUOTE.convert();
+                return CONVERTED_QUOTE;
+            } catch (error) {
+                console.error("Error fetching quote data:", error);
+                return { error: error.message, status: error.status || "Failed to fetch quote data" };
+            }
+        };
+
+        // Await the result from QuoteData and return it
+        return await QuoteData();
     },
 
 
@@ -319,10 +401,10 @@ const actions = {
                 routes.fetchGuestyListings(token),
                 routes.fetchGuestyCities(token),
             ]);
-
+            const pagination = listings.pagination
             const coverted_listings = listings.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
 
-            return { coverted_listings, cities }; // Return listings and cities only
+            return { coverted_listings, cities, pagination }; // Return listings and cities only
         } catch (error) {
             console.error("Error fetching listings or cities:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
@@ -346,44 +428,17 @@ const actions = {
 
         try {
             // Fetch listing details and reviews
-            const [listingDetails, reviews] = await Promise.all([
+            const [listingDetails, reviews, availabilitie] = await Promise.all([
                 routes.fetchGuestyListingDetails(listingId, token),
                 routes.fetchGuestyListingReviews(listingId, token),
+                routes.fetchGuestyListingAvailabilities(token, params)
             ]);
-
-            // Fetch quote if quote parameters are provided
-            let quote;
-            const {
-                guestsCount,
-                checkInDateLocalized,
-                checkOutDateLocalized,
-                coupons,
-            } = params.quote || {};
-
-            if (
-                guestsCount !== undefined &&
-                checkInDateLocalized &&
-                checkOutDateLocalized
-            ) {
-                try {
-                    quote = await routes.fetchGuestyListingQuote(token, {
-                        listingId,
-                        quote: {
-                            guestsCount,
-                            checkInDateLocalized,
-                            checkOutDateLocalized,
-                            coupons,
-                        },
-                    });
-                } catch (error) {
-                    console.error("Error fetching quote:", error.message);
-                    quote = { message: "Quote not available for this request" }; // Handle quote fetching error
-                }
-            }
+     
             // Convert listing to Client Requirement
             const listing = new client_listing_detail_Converter(listingDetails);
             const singleListing = listing.convert();
-            return { singleListing, reviews, quote }; // Return listing details, reviews, and quote
+            const availabilities = availabilitie.filter((date) => date.status !== "available")
+            return { singleListing, reviews, availabilities }; 
         } catch (error) {
             console.error(
                 "Error fetching listing details or reviews:",
@@ -534,47 +589,34 @@ const actions = {
         const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
         try {
             // Fetch listing details and reviews
-            const [listingDetails, availabilities] = await Promise.all([
+            const [listingDetails, listingDetailsBETA, availabilities] = await Promise.all([
                 routesLodgify.fetchLodgifyListingDetails(keysObject, params),
+                routesLodgify.fetchLodgifyListingDetailsBETA(keysObject, params),
                 routesLodgify.fetchLodgifyListingAvailabilities(keysObject, params),
             ]);
             const roomId = listingDetails?.rooms?.[0]?.id;
-            const info = await routesLodgify.fetchLodgifyListingInfo(keysObject, roomId, params);
-            // Fetch quote if quote parameters are provided
-            let quote;
-            const {
-                guestsCount,
-                checkInDateLocalized,
-                checkOutDateLocalized,
-                coupons,
-            } = params.quote || {};
+            const roomInfo = await routesLodgify.fetchLodgifyListingInfo(keysObject, params, roomId);
 
-            if (
-                guestsCount !== undefined &&
-                checkInDateLocalized &&
-                checkOutDateLocalized
-            ) {
-                try {
-                    quote = await routesLodgify.fetchLodgifyListingQuoteBeta(keysObject, params)
-                } catch (error) {
-                    console.error("Error fetching quote:", error.message);
-                    quote = { message: "Quote not available for this request" }; // Handle quote fetching error
-                }
-            }
-            // Convert listing to Client Requirement
+            // Convert listing to FRONT END Requirement
 
-            const listing = new client_lodgiy_listing_detail_V2_Converter(listingDetails as Property_info_by_Id_includeInOut);
-            const Info = new client_lodgiy_listing_info_Converter(info as Room_info_in_a_property_by_id);
-            const listing_info = Info.convert()
+            //PROPERTY DETAILS API CALL 
+            const listing = new LODGIFY_DETAILS_TO_LISTING_DETAILS_FORMAT(listingDetails as lodgify_listings_details);
             const singleListingObject = listing.convert();
-            const singleListing = { ...singleListingObject, ...listing_info }
 
-            return { singleListing, availabilities, quote,singleListingObject };
+            //ROOM INFO API CALL
+            const listingRoomInfo = new LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT(roomInfo as Room_info_in_a_property_by_id);
+            const listing_roomInfo = listingRoomInfo.convert()
+
+            //PROPERTY DETAILS BETA (TEMP) API CALL ** gets addional data missing from other apis 
+            const DetailsBETA = new LODGIFY_DETAILS_BETA_TO_LISTING_DETAILS_FORMAT(listingDetailsBETA as Lodgify_Listing_Details_BETA);
+            const listing_details_beta = DetailsBETA.convert()
+
+            const singleListing = { ...singleListingObject, ...listing_roomInfo, ...listing_details_beta }
+
+            return { singleListing, availabilities };
+
         } catch (error) {
-            console.error(
-                "Error fetching listing details :",
-                error.message
-            );
+            console.error("Error fetching listing details :", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
         }
     },

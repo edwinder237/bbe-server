@@ -10,7 +10,7 @@ interface props{
 
 async function handleFetch({apiUrl, accessToken, internal_ID, method, body}: props) {
 
-    const reqBody = body
+   
   const options1 = {
     method: method,
     headers: {

@@ -1,7 +1,8 @@
 import {
   lodgify_listings,
+  lodgify_listings_details,
   guesty_listings,
-  Lodgify_Listing_Details,
+  Lodgify_Listing_Details_BETA,
   Room_info_in_a_property_by_id,
   Property_info_by_Id_includeInOut,
   //
@@ -9,7 +10,7 @@ import {
   listings_search_client,
   listing_detail_client,
   lodgify_quote_beta,
-  listing_quote_client
+  Listing_Quote_Client
 
 } from "./types";
 
@@ -33,25 +34,25 @@ export class ListingConverter {
       nickname: "",
       featuredImage: this.input.image_url,
       galleryImgs: this.getGalleryImages(),
-      commentCount: 0, 
-      viewCount: 0, 
-      like: false, 
+      commentCount: 0,
+      viewCount: 0,
+      like: false,
       address: {
         full: this.input.address,
         city: this.input.city,
         country: this.input.country,
-        lat: this.input.latitude ,
+        lat: this.input.latitude,
         lng: this.input.longitude,
         state: this.input.state,
         street: this.input.zip
-        
+
       },
       reviewStart: this.input.rating,
       reviewCount: this.getReviewCount(),
       price: this.formatPrice(),
       maxGuests: 0,
-      bedrooms: 0, 
-      bathrooms: 0, 
+      bedrooms: 0,
+      bathrooms: 0,
       saleOff: "", // Assuming no sale info, adjust if available
       isAds: false, // Assuming no ad flag, adjust if available
     };
@@ -99,7 +100,7 @@ export class GuestyConverter {
       listingCategory: this.input.propertyType,
       authorId: 10, // Static value, you can adjust this as needed
       date: new Date().toLocaleDateString(), // Use the current date or adjust based on your logic
-      href: "/listing-stay-detail", // Static value, you can adjust this
+      href: "/listings", 
       title: this.input.title,
       nickname: this.input.nickname,
       featuredImage: this.input.picture.thumbnail, // Use the thumbnail as the featured image
@@ -141,9 +142,8 @@ export class GuestyConverter {
 
   // Helper method to format price as a string
   private formatPrice(): string {
-    return `${this.input.prices.basePrice.toFixed(2)} ${
-      this.input.prices.currency
-    }`; // Adjusted for guesty_listings
+    return `${this.input.prices.basePrice.toFixed(2)} ${this.input.prices.currency
+      }`; // Adjusted for guesty_listings
   }
 
   // Helper method to return gallery images
@@ -184,10 +184,10 @@ export class client_listing_detail_Converter {
         state: this.input.address.state,
         street: this.input.address.street,
       },
-      terms:{
+      terms: {
         minNights: this.input.terms.minNights,
         maxNights: this.input.terms.maxNights
-      } ,
+      },
       timezone: this.input.timezone,
       prices: this.input.prices,
       bathrooms: this.input.bathrooms,
@@ -195,10 +195,10 @@ export class client_listing_detail_Converter {
       beds: this.input.beds,
       accommodates: this.input.accommodates,
       amenities: this.input.amenities
-       ,
-      publicDescription:{
+      ,
+      publicDescription: {
         transit: this.input.publicDescription?.transit,
-        neighborhood:this.input.publicDescription?.neighborhood,
+        neighborhood: this.input.publicDescription?.neighborhood,
         space: this.input.publicDescription?.space,
         access: this.input.publicDescription?.access,
         notes: this.input.publicDescription?.notes,
@@ -206,9 +206,9 @@ export class client_listing_detail_Converter {
         summary: this.input.publicDescription?.summary,
         houseRules: this.input.publicDescription?.houseRules
       },
-      thingsToknow:{
-        checkInTime:this.input?.defaultCheckInTime,
-        checkOutTime:this.input?.defaultCheckOutTime,
+      thingsToknow: {
+        checkInTime: this.input?.defaultCheckInTime,
+        checkOutTime: this.input?.defaultCheckOutTime,
       }
     };
   }
@@ -216,10 +216,10 @@ export class client_listing_detail_Converter {
 
 // CONVERTS LODGIFY DETAILS API => BBE DETAILS PAGE
 
-export class client_lodgiy_listing_detail_V2_Converter {
-  private input: Property_info_by_Id_includeInOut;
+export class LODGIFY_DETAILS_TO_LISTING_DETAILS_FORMAT {
+  private input: lodgify_listings_details;
 
-  constructor(input: Property_info_by_Id_includeInOut) {
+  constructor(input: lodgify_listings_details) {
     this.input = input;
   }
 
@@ -228,105 +228,123 @@ export class client_lodgiy_listing_detail_V2_Converter {
     return {
       id: this.input.id.toString(),
       title: this.input.name,
+      base_currency:this.input.currency.code,
       bathrooms: this.input.rooms[0]?.bathrooms,
       bedrooms: this.input.rooms[0]?.bedrooms,
-      publicDescription: {
-        transit: "" ,
-        neighborhood:"",
-        space: "",
-        access: "",
-        notes: "",
-        interactionWithGuests: "string",
-        summary: this.input.description,
-        houseRules: "string",
-      },
-      prices: {
+      accommodates: this.input.rooms[0]?.max_people,
+      prices:{
+        lodgifyDisplayPrice:this.input.original_min_price,
         max_price: this.input.max_price,
-        basePrice:this.input.min_price,
-        currency: this.input.currency_code,
-      },
-      galleryImgs: [],
-      reviews: {
-        avg: this.input.rating,
-        total: 0,
-      },
-     // Ensure rooms is defined and has at least one room
-roomId: this.input.rooms?.[0]?.id ?? 999, // Use optional chaining and default value,
-      address: {
-        city: this.input.city , 
-        country: this.input.country , 
-        full: this.input.address , 
-        lat: this.input?.latitude ?? 0, 
-        lng: this.input.longitude ?? 0, 
-        state: this.input.state ,
-        street: this.input.zip,
-    }
+        basePrice: this.input.min_price,
+        currency: this.input.currency.code
+      
+      }
       
     };
   }
 
+
+
 }
 
-export class client_lodgiy_listing_detail_Converter {
-  private input: Lodgify_Listing_Details;
+export class LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT {
+  private input: Room_info_in_a_property_by_id;
 
-  constructor(input: Lodgify_Listing_Details) {
+  constructor(input: Room_info_in_a_property_by_id) {
+    this.input = input;
+  }
+
+  // Method to convert input to front-end format
+  public convert(): listing_detail_client {
+    return {
+      galleryImgs: this.convertIMGs(this.input.images),
+      amenities: this.getAmenities(this.input.amenities),
+
+    };
+  }
+
+  // Helper method to convert images array to client format => [{original:"imgurl"}]
+  private convertIMGs(imgsArray: { url: string }[]): { original: string }[] {
+    return imgsArray.map((img) => ({
+      original: `https:${img.url}`,
+    }));
+  }
+
+  // Method to aggregate amenities into a single array of strings
+  private getAmenities(amenitiesArray: Record<string, { text: string }[] | unknown[]>): string[] {
+    const allAmenities: string[] = [];
+  
+    // Filter and process only entries that match the `{ text: string }[]` structure
+    Object.values(amenitiesArray).forEach((category) => {
+      if (Array.isArray(category) && category.every(item => item && typeof item === 'object' && 'text' in item)) {
+        (category as { text: string }[]).forEach((amenity) => {
+          if (amenity.text) {
+            allAmenities.push(amenity.text);
+          }
+        });
+      }
+    });
+  
+    return allAmenities;
+  }
+}
+
+export class LODGIFY_DETAILS_BETA_TO_LISTING_DETAILS_FORMAT { //make sure to add ? on all deconstruction
+  private input: Lodgify_Listing_Details_BETA;
+
+  constructor(input: Lodgify_Listing_Details_BETA) {
     this.input = input;
   }
 
   // Method to convert input to front-end
   public convert(): listing_detail_client {
     return {
-      id: "000",
-      title: "title here",
+      hostLanguages: this.input.ownerSpokenLanguages ?? [],
       publicDescription: {
-        transit: "" ,
-        neighborhood:"",
+        transit: "",
+        neighborhood: "",
         space: "",
         access: "",
         notes: "",
-        interactionWithGuests: "string",
-        summary: this.input.description,
-        houseRules: "string",
+        interactionWithGuests: "",
+        summary: this.input?.description ?? "",
+        houseRules: "",
       },
-      galleryImgs: this.input.imageUrls.map(url => ({ original: `https:${url}` })),
+      beds: this.input?.sleepingArrangements?.length ?? 0,
+  
       reviews: {
-        avg: this.input.reviews.averageRating,
-        total: this.input.reviews.total,
+        avg: this.input?.reviews?.averageRating ?? 0,
+        total: this.input?.reviews?.total ?? 0,
       },
+  
+      roomId: this.input?.rooms?.[0]?.id ?? 999, // Default to 999 if roomId is undefined
+  
       address: {
-        city: this.input.addressInfo.city , // Default to empty string if undefined
-        country: this.input.addressInfo.country , // Default to empty string if undefined
-        full: this.input.addressInfo.address , // Default to empty string if undefined
-        lat: this.input.addressInfo.coordinates?.lat ?? 0, // Default to 0 if lat is undefined
-        lng: this.input.addressInfo.coordinates?.lng ?? 0, // Default to 0 if lng is undefined
-        state: this.input.addressInfo.stateProvince ,
-        street: "",
-    },
-      bathrooms: this.input.rooms[0]?.bathrooms,
-      bedrooms: this.input.rooms[0]?.bedrooms,
-      accommodates: this.input.keyFacts.maxGuests,
-      amenities: this.amenitiesConvert(),
+        isAddressHidden: this.input?.addressInfo?.isAddressHidden ?? false,
+        city: this.input?.addressInfo?.city ?? "",
+        country: this.input?.addressInfo?.country ?? "",
+        full: this.input?.addressInfo?.address ?? "",
+        lat: this.input?.addressInfo?.coordinates?.lat ?? 0,
+        lng: this.input?.addressInfo?.coordinates?.lng ?? 0,
+        state: this.input?.addressInfo?.stateProvince ?? "",
+        street: "not available",
+        zipCode: this.input?.addressInfo?.zipCode ?? "",
+      },
+      thingsToknow:{
+        checkInTime:this.convertToTimeString(this.input.arrivalHour),
+        checkOutTime:this.convertToTimeString(this.input.departureHour),
+      }
     };
   }
-  // Helper amenities to Array of strings
-  private amenitiesConvert(): Array<string> {
-    const amenitiesList = this.input.amenities;
-    const lastWords: string[] = [];
-    amenitiesList.forEach((amenity) => {
-      amenity.amenities.forEach((item) => {
-        const lastWord = item.split("-").pop();
-        if (lastWord) {
-          lastWords.push(lastWord.charAt(0).toUpperCase() + lastWord.slice(1));
-        }
-      });
-    });
-
-    return lastWords;
+  private  convertToTimeString(hour) {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+    return `${formattedHour}:00 ${period}`;
   }
 
-
 }
+
+
 
 
 export class client_lodgiy_listing_info_Converter {
@@ -341,8 +359,8 @@ export class client_lodgiy_listing_info_Converter {
     return {
       galleryImgs: this.input.images.map(img => ({ original: `https:${img.url}` })),
       prices: {
-        max_price: this.input.original_max_price || 0, 
-        basePrice: this.input.original_min_price || 0, 
+        max_price: this.input.original_max_price || 0,
+        basePrice: this.input.original_min_price || 0,
         currency: this.input.currency.code
       },
       bedrooms: this.input.bedrooms,
@@ -351,25 +369,25 @@ export class client_lodgiy_listing_info_Converter {
       amenities: this.amenitiesConvert()
     };
   }
-// Helper amenities to Array of strings
-private amenitiesConvert(): Array<string> {
-  const amenitiesList = this.input.amenities;
-  const flatAmenities: string[] = []; // Changed name to flatAmenities for clarity
+  // Helper amenities to Array of strings
+  private amenitiesConvert(): Array<string> {
+    const amenitiesList = this.input.amenities;
+    const flatAmenities: string[] = []; // Changed name to flatAmenities for clarity
 
-  // Loop through each type of amenities
-  for (const category in amenitiesList) {
+    // Loop through each type of amenities
+    for (const category in amenitiesList) {
       if (Array.isArray(amenitiesList[category])) {
-          amenitiesList[category].forEach((item) => {
-              // Push the text property of each item to the flatAmenities array
-              if (item.text) {
-                  flatAmenities.push(item.text);
-              }
-          });
+        amenitiesList[category].forEach((item) => {
+          // Push the text property of each item to the flatAmenities array
+          if (item.text) {
+            flatAmenities.push(item.text);
+          }
+        });
       }
-  }
+    }
 
-  return flatAmenities;
-}
+    return flatAmenities;
+  }
 
 
 }
@@ -381,109 +399,53 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
     this.input = input;
   }
 
-  // Method to convert input to front-end
-  public convert(): listing_quote_client {
+  // Method to convert input to Listing_Quote_Client format
+  public convert(): Listing_Quote_Client {
     return {
-     
-      rates: {
-        ratePlans: [
-          {
-            ratePlan: {
-              _id: "rateplan-id-001",
-              name: "Standard Rate Plan",
-              priceAdjustment: {
-                type: "flat", // Could be an enum ('flat', etc.)
-                direction: "decrease", // Could be an enum ('increase', 'decrease', etc.)
-                amount: 50.00,
-              },
-              type: "default",
-              mealPlans: [],
-              cancellationPolicy: null,
-              cancellationFee: null,
-              description: "No special terms.",
-              minNights: 3,
-              rateStrategies: [],
-              money: {
-                currency: this.input.currencyCode,
-                fareAccommodation: this.input.rentalPrice.total,
-                fareAccommodationAdjusted: this.input.rentalPrice.totalWithPromotions,
-                nightlyPrice: this.input.rentalPrice.nightlyPrice,
-                fareCleaning: 100.00,
-                totalFees: this.input.fees.total,
-                subTotalPrice: 1300.00,
-                hostPayout: 1100.00,
-                hostPayoutUsd: 1100.00,
-                totalTaxes: this.input.localTaxes.total ,
-                invoiceItems: [
-                  {
-                    title: "Accommodation fare",
-                    amount: 1200.00,
-                    currency: "USD",
-                    type: "ACCOMMODATION_FARE",
-                    normalType: "AF",
-                  },
-                  {
-                    title: "Cleaning fee",
-                    amount: 100.00,
-                    currency: "USD",
-                    type: "CLEANING_FEE",
-                    normalType: "CF",
-                  },
-                  {
-                    title: "Tourism Tax",
-                    amount: 100.00,
-                    currency: "USD",
-                    type: "TAX",
-                    normalType: "TT",
-                  },
-                  {
-                    title: "Local Tax",
-                    amount: 50.00,
-                    currency: "USD",
-                    type: "TAX",
-                    normalType: "LT",
-                  },
-                ],
-              },
-            },
-            inquiryId: "inquiry-id-001",
-            days: [
-              {
-                date: "2025-01-15",
-                currency: "USD",
-                rateStrategy: 0,
-                ratePlan: 0,
-                minNights: 3,
-                maxNights: 365,
-                manualPrice: 200.00,
-                lengthOfStay: 7,
-                price: 200.00,
-              },
-              {
-                date: "2025-01-16",
-                currency: "USD",
-                rateStrategy: 0,
-                ratePlan: 0,
-                minNights: 3,
-                maxNights: 365,
-                manualPrice: 205.00,
-                lengthOfStay: 7,
-                price: 205.00,
-              },
-            ],
-          },
-        ],
-      },
-      coupons: [],
-      numberOfGuests: {
-        numberOfAdults: 2,
-      },
-      __v: 1,
-      status: "valid",
-      promotions: {},
+      propertyId: this.input.propertyId.toString(),
+      currency: this.input.currencyCode,
+
+      // Date Information
+      lengthOfStay: this.input?.rentalPrice?.nights,
+
+      // Invoice Details
+      preTotal: this.input.totalPrice.totalExcSalesTaxes,
+      nightlyPrice: this.input.rentalPrice.nightlyPrice,
+      stayTotal: this.input.rentalPrice.total,
+
+      // Fees Information
+      totalFees: this.input.fees.total,
+      feesItems: this.convertInvoiceItems(this.input.fees.details, this.input.currencyCode, "fee"),
+
+      // Taxes Information
+      totalTaxes: this.input.localTaxes.total,
+      taxesItems: this.convertInvoiceItems(this.input.localTaxes.details, this.input.currencyCode, "tax"),
+
+      // Taxes Information
+      otherItems: this.convertPaymentsItems(this.input.scheduledPayments.payments, this.input.currencyCode, "deposit"),
     };
   }
 
 
 
+  // Helper method to convert Invoice items
+  private convertInvoiceItems(details: { name: string; value: number }[], currency: string, type: string) {
+    return details.map((detail) => ({
+      title: detail.name,
+      amount: detail.value,
+      type: type,
+      currency,
+    }));
+  }
+
+    // Helper method to convert payments items
+    private convertPaymentsItems(payments: { name: string; amount: number; isCurrent?:boolean; }[], currency: string, type: string) {
+      return payments.map((payment) => ({
+        title: payment.name,
+        amount: payment.amount,
+        type: type,
+        currency,
+        isCurrent: payment?.isCurrent
+      }));
+    }
 }

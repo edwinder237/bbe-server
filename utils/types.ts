@@ -36,6 +36,68 @@ export type lodgify_listings = {
   created_at: string;
   updated_at: string;
 };
+export type lodgify_listings_details = {
+  id: number;
+  name: string;
+  address: string;
+  zip: string;
+  city: string;
+  country: string;
+  image_url: string;
+  has_addons: boolean;
+  has_agreement: boolean;
+  agreement_text: string | null;
+  agreement_url: string | null;
+  owner: {
+    spoken_languages: string[];
+  };
+  rating: number;
+  price_unit_in_days: number;
+  min_price: number;
+  original_min_price: number;
+  max_price: number;
+  original_max_price: number;
+  rooms: Array<{
+    id: number;
+    name: string;
+    image_url: string;
+    max_people: number;
+    units: number;
+    has_wifi: boolean;
+    has_meal_plan: boolean;
+    bedrooms: number;
+    bathrooms: number;
+    area_unit: string;
+    area: number;
+    min_price: number;
+    original_min_price: number;
+    max_price: number;
+    original_max_price: number;
+    price_unit_in_days: number;
+    currency: {
+      id: number;
+      code: string;
+      name: string;
+      euro_forex: number;
+      symbol: string;
+    };
+  }>;
+  in_out_max_date: string;
+  in_out: {
+    is_restricted: boolean;
+    check_in: Array<{ date: string; for: number }>;
+    check_out: Array<{ date: string; for: number }>;
+    not_available: Array<{ date: string; for: number }>;
+  };
+  currency: {
+    id: number;
+    code: string;
+    name: string;
+    euro_forex: number;
+    symbol: string;
+  };
+  subscription_plans: string[];
+};
 export type Property_info_by_Id_includeInOut = {
   id: number;
   name: string;
@@ -104,14 +166,21 @@ export type Property_info_by_Id_includeInOut = {
       for: string;
     }[];
   };
-  currency_code: string;
+  currency:{
+    id: number;
+    code: string;
+    name: string;
+    euro_forex: number; 
+    symbol: string;
+  }
+  currency_code?: string;
   created_at: string; // or Date depending on usage
   updated_at: string; // or Date depending on usage
   is_active: boolean;
   subscription_plans: string[];
 
 };
-export type Lodgify_Listing_Details = {
+export type Lodgify_Listing_Details_BETA = {
   addressInfo: {
     isAddressHidden: boolean;
     address: string;
@@ -199,6 +268,7 @@ export type Lodgify_Listing_Details = {
     }>;
   };
 };
+
 
 export type Room_info_in_a_property_by_id = {
   images: Array<{
@@ -602,19 +672,33 @@ export type listings_search_client = {
     bgImage: string;
   };
   listingCategory?: string;
-  isActive?: boolean
+  isActive?: boolean;
+  pagination?: {
+    total: number,
+    cursor: {
+      next?: string;
+    }
+  }
+  
 };
 interface amenitiesType {
   allAmenities: string[]
+
+
+}
+
+interface galleryImgsType{
+    original: string
 }
 export type listing_detail_client = {
   id?: string;
   title?: string;
-  galleryImgs: object[];
+  galleryImgs?: Array<galleryImgsType>;
   amenities?: string[];
   max_price?: number
   min_Price?: number
   prices?: {
+    lodgifyDisplayPrice?:number
     max_price: number
     basePrice: number;
     currency: string;
@@ -627,13 +711,16 @@ export type listing_detail_client = {
   base_currency?: string
 
   //OPTIONAL 
+  
   roomId?: number,
   terms?: {
     minNights?: number;
     maxNights?: number
   },
   timezone?: string;
+  hostLanguages?:string[];
   publicDescription?: {
+    
     transit?: string;
     neighborhood?: string;
     space?: string;
@@ -649,13 +736,15 @@ export type listing_detail_client = {
     total: number
   },
   address?: {
+    isAddressHidden?:boolean;
     city?: string,
     country?: string,
     full?: string,
     lat?: number,
     lng?: number,
     state?: string,
-    street?: string
+    street?: string,
+    zipCode?:string
   },
 
   bathrooms?: number,
@@ -754,4 +843,64 @@ export type listing_quote_client = {
 
 
 }
+
+export type Listing_Quote_Client = {
+  quoteId?: string;
+  createdAt?: string; // ISO date string
+  expiresAt?: string; // ISO date string
+  propertyId?: string;
+  roomId?: string;
+  currency: string;
+
+  // Date Information
+  checkInDateLocalized?: string; // Date in the format YYYY-MM-DD
+  checkOutDateLocalized?: string; // Date in the format YYYY-MM-DD
+  lengthOfStay: number;
+
+  // Booking Details
+  guestsCount?: number;
+  minNights?: number;
+  maxNights?: number;
+  coupons?: {
+    code: string;
+    discountAmount: number;
+    discountType: string; // e.g., 'percentage' or 'fixed'
+  }[];
+
+  // Invoice Details
+  preTotal: number;
+  nightlyPrice: number;
+  stayTotal:number;
+
+  // Fees Information
+  totalFees?: number;
+  feesItems?: {
+    title: string;
+    amount: number;
+    type: string;
+    currency?: string;
+  }[];
+
+  // Taxes Information
+  totalTaxes?: number;
+  taxesItems?: {
+    title: string;
+    amount: number;
+    type: string;
+    currency?: string;
+  }[];
+
+  // Other Charges (e.g., deposits)
+  totalOtherCharges?: number;
+  otherItems?: {
+    title: string;
+    amount: number;
+    type: string;
+    currency?: string;
+    isCurrent?:boolean;
+  }[];
+};
+
+
+
 
