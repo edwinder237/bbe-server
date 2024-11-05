@@ -861,15 +861,13 @@ export type Listing_Quote_Client = {
   guestsCount?: number;
   minNights?: number;
   maxNights?: number;
-  coupons?: {
-    code: string;
-    discountAmount: number;
-    discountType: string; // e.g., 'percentage' or 'fixed'
-  }[];
+  coupons?: any[];
 
   // Invoice Details
   preTotal: number;
+  nightlyTotal:number;
   nightlyPrice: number;
+  subTotal?: number;
   stayTotal:number;
 
   // Fees Information

@@ -10,6 +10,7 @@ import {
   listings_search_client,
   listing_detail_client,
   lodgify_quote_beta,
+  guesty_quote,
   Listing_Quote_Client
 
 } from "./types";
@@ -100,7 +101,7 @@ export class GuestyConverter {
       listingCategory: this.input.propertyType,
       authorId: 10, // Static value, you can adjust this as needed
       date: new Date().toLocaleDateString(), // Use the current date or adjust based on your logic
-      href: "/listings", 
+      href: "/listings",
       title: this.input.title,
       nickname: this.input.nickname,
       featuredImage: this.input.picture.thumbnail, // Use the thumbnail as the featured image
@@ -228,18 +229,18 @@ export class LODGIFY_DETAILS_TO_LISTING_DETAILS_FORMAT {
     return {
       id: this.input.id.toString(),
       title: this.input.name,
-      base_currency:this.input.currency.code,
+      base_currency: this.input.currency.code,
       bathrooms: this.input.rooms[0]?.bathrooms,
       bedrooms: this.input.rooms[0]?.bedrooms,
       accommodates: this.input.rooms[0]?.max_people,
-      prices:{
-        lodgifyDisplayPrice:this.input.original_min_price,
+      prices: {
+        lodgifyDisplayPrice: this.input.original_min_price,
         max_price: this.input.max_price,
         basePrice: this.input.min_price,
         currency: this.input.currency.code
-      
+
       }
-      
+
     };
   }
 
@@ -273,7 +274,7 @@ export class LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT {
   // Method to aggregate amenities into a single array of strings
   private getAmenities(amenitiesArray: Record<string, { text: string }[] | unknown[]>): string[] {
     const allAmenities: string[] = [];
-  
+
     // Filter and process only entries that match the `{ text: string }[]` structure
     Object.values(amenitiesArray).forEach((category) => {
       if (Array.isArray(category) && category.every(item => item && typeof item === 'object' && 'text' in item)) {
@@ -284,7 +285,7 @@ export class LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT {
         });
       }
     });
-  
+
     return allAmenities;
   }
 }
@@ -311,14 +312,14 @@ export class LODGIFY_DETAILS_BETA_TO_LISTING_DETAILS_FORMAT { //make sure to add
         houseRules: "",
       },
       beds: this.input?.sleepingArrangements?.length ?? 0,
-  
+
       reviews: {
         avg: this.input?.reviews?.averageRating ?? 0,
         total: this.input?.reviews?.total ?? 0,
       },
-  
+
       roomId: this.input?.rooms?.[0]?.id ?? 999, // Default to 999 if roomId is undefined
-  
+
       address: {
         isAddressHidden: this.input?.addressInfo?.isAddressHidden ?? false,
         city: this.input?.addressInfo?.city ?? "",
@@ -330,13 +331,13 @@ export class LODGIFY_DETAILS_BETA_TO_LISTING_DETAILS_FORMAT { //make sure to add
         street: "not available",
         zipCode: this.input?.addressInfo?.zipCode ?? "",
       },
-      thingsToknow:{
-        checkInTime:this.convertToTimeString(this.input.arrivalHour),
-        checkOutTime:this.convertToTimeString(this.input.departureHour),
+      thingsToknow: {
+        checkInTime: this.convertToTimeString(this.input.arrivalHour),
+        checkOutTime: this.convertToTimeString(this.input.departureHour),
       }
     };
   }
-  private  convertToTimeString(hour) {
+  private convertToTimeString(hour) {
     const period = hour >= 12 ? 'PM' : 'AM';
     const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
     return `${formattedHour}:00 ${period}`;
@@ -410,42 +411,168 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
 
       // Invoice Details
       preTotal: this.input.totalPrice.totalExcSalesTaxes,
+      nightlyTotal: this.input.rentalPrice.total,
       nightlyPrice: this.input.rentalPrice.nightlyPrice,
-      stayTotal: this.input.rentalPrice.total,
+      subTotal: this.input.totalPrice.totalExcSalesTaxes,
+      stayTotal: this.input.totalPrice.total,
 
       // Fees Information
-      totalFees: this.input.fees.total,
-      feesItems: this.convertInvoiceItems(this.input.fees.details, this.input.currencyCode, "fee"),
+      totalFees: (this.input.fees?.total ?? 0) + (this.input.localTaxes?.total ?? 0),
+      feesItems: this.convertInvoiceItems(this.input.fees.details,this.input.localTaxes.details, this.input.currencyCode, "fee"),
 
       // Taxes Information
-      totalTaxes: this.input.localTaxes.total,
-      taxesItems: this.convertInvoiceItems(this.input.localTaxes.details, this.input.currencyCode, "tax"),
+      totalTaxes: this.input.totalPrice.salesTaxes,
+      taxesItems: this.getSalesTaxes(this.input.totalPrice.salesTaxes, this.input.currencyCode),
 
       // Taxes Information
       otherItems: this.convertPaymentsItems(this.input.scheduledPayments.payments, this.input.currencyCode, "deposit"),
     };
   }
 
+  private getSalesTaxes(taxAmount:number,currency:string) {
+    return [{
+      title: "sales tax",
+      amount: taxAmount,
+      type: "tax",
+      currency,
+    }];
+  }
 
 
   // Helper method to convert Invoice items
-  private convertInvoiceItems(details: { name: string; value: number }[], currency: string, type: string) {
-    return details.map((detail) => ({
+  private convertInvoiceItems(
+    fees: { name: string; value: number }[],
+    taxes: { name: string; value: number }[],
+    currency: string,
+    type: string
+  ) {
+    const Fees = fees.map((detail) => ({
       title: detail.name,
       amount: detail.value,
       type: type,
       currency,
     }));
+  
+    const Taxes = taxes.map((detail) => ({
+      title: detail.name,
+      amount: detail.value,
+      type: type,
+      currency,
+    }));
+  
+    return [...Fees, ...Taxes];
   }
 
-    // Helper method to convert payments items
-    private convertPaymentsItems(payments: { name: string; amount: number; isCurrent?:boolean; }[], currency: string, type: string) {
-      return payments.map((payment) => ({
-        title: payment.name,
-        amount: payment.amount,
-        type: type,
-        currency,
-        isCurrent: payment?.isCurrent
-      }));
+  // Helper method to convert payments items
+  private convertPaymentsItems(payments: { name: string; amount: number; isCurrent?: boolean; }[], currency: string, type: string) {
+    return payments.map((payment) => ({
+      title: payment.name,
+      amount: payment.amount,
+      type: type,
+      currency,
+      isCurrent: payment?.isCurrent
+    }));
+  }
+}
+
+export class GUESTY_QUOTE_TO_CLIENT_LISTING_QUOTE {
+  private input: guesty_quote;
+
+  constructor(input: guesty_quote) {
+    this.input = input;
+  }
+
+  // Method to convert input to Listing_Quote_Client format
+  public convert(): Listing_Quote_Client {
+    const quote = this.input.rates?.ratePlans[0].ratePlan?.money;
+    const quoteParams = this.input.rates?.ratePlans[0];
+    return {
+      quoteId: this.input._id,
+      createdAt: this.input.createdAt,
+      expiresAt: this.input.expiresAt,
+      propertyId: this.input.createdAt,
+      currency: quote.currency,
+
+      // Date Information
+      checkInDateLocalized: this.input.checkInDateLocalized,
+      checkOutDateLocalized: this.input.checkOutDateLocalized,
+      lengthOfStay: quoteParams.days.length,
+
+      // Booking Details
+      guestsCount: this.input.guestsCount,
+      minNights: quoteParams.ratePlan.minNights,
+      coupons: this.input.coupons,
+
+      // Invoice Details
+      preTotal: quote.fareAccommodation,
+      nightlyTotal:quote.fareAccommodation,
+      nightlyPrice: this.getNightlyCost(quote.fareAccommodation, quoteParams.days.length),
+      subTotal: quote.subTotalPrice,
+      stayTotal: quote.hostPayout,
+
+      // Fees Information
+      totalFees: quote.totalFees,
+      feesItems: this.convertInvoiceItems(quote.invoiceItems,"fee"),
+
+      // Taxes Information
+      totalTaxes: quote.totalTaxes,
+      taxesItems: this.convertInvoiceItems(quote.invoiceItems,"tax"),
+
     }
+  }
+  //helper method that gets nightly cost for a quote
+  private getNightlyCost(basePrice: number, stayLength: number): number {
+    if (typeof basePrice !== 'number' || basePrice <= 0) {
+      throw new Error('Invalid base price provided');
+    }
+
+    if (typeof stayLength !== 'number' || stayLength <= 0) {
+      throw new Error('Invalid stay length provided');
+    }
+
+    return basePrice / stayLength;
+  }
+
+// Helper method to convert Invoice items
+private convertInvoiceItems(
+  details: { title: string; amount: number; currency: string; type: string; normalType: string }[],
+  type: string
+) {
+  const taxes_codes = new Set([
+    "LOCAL_TAX",
+    "CITY_TAX",
+    "VAT",
+    "GOODS_AND_SERVICES_TAX",
+    "TOURISM_TAX",
+    "OTHER",
+    "TAX"
+  ]);
+
+  // Filter out items with type "ACCOMMODATION_FARE" and then filter based on the input type
+  return details
+    .filter((detail) => detail.type !== "ACCOMMODATION_FARE")
+    .filter((detail) =>
+      type === "tax"
+        ? taxes_codes.has(detail.type) // Check for tax types using `Set` for better performance
+        : !taxes_codes.has(detail.type) // Check for non-tax (fee) types
+    )
+    .map((detail) => ({
+      title: detail.title.replace(/_/g, " "), // Replace underscores with spaces
+      amount: detail.amount,
+      type, // Set type based on the input parameter
+      currency: detail.currency,
+    }));
+}
+
+  // Helper method to convert payments items
+  private convertPaymentsItems(payments: { name: string; amount: number; isCurrent?: boolean; }[], currency: string, type: string) {
+    return payments.map((payment) => ({
+      title: payment.name,
+      amount: payment.amount,
+      type: type,
+      currency,
+      isCurrent: payment?.isCurrent
+    }));
+  }
+
 }

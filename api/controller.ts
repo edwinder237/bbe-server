@@ -13,6 +13,7 @@ import {
     LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT,
     //listing_quote_client,
     LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE,
+    GUESTY_QUOTE_TO_CLIENT_LISTING_QUOTE,
     LODGIFY_DETAILS_TO_LISTING_DETAILS_FORMAT
 } from "../utils/clientConverter";
 
@@ -24,7 +25,8 @@ import {
     Property_info_by_Id_includeInOut,
     Room_info_in_a_property_by_id,
     lodgify_quote_beta,
-    lodgify_listings_details
+    lodgify_listings_details,
+    guesty_quote
 
 
 
@@ -88,49 +90,87 @@ interface ParamsNextPageType {
 }
 
 interface keysType {
-    appKey?: string; // Required
-    apiKey?: string; // Required
+    appKey: string; // Required
+    apiKey: string; // Required
 }
 
-// Helper function to fetch data
-const fetchGuestyData = async (url: string, token: string, action: string) => {
-    const options = {
+interface FetchResponse {
+    success: boolean;
+    data: any; 
+    message?: string;
+  }
+
+  interface tokenType {
+    appKey: string; // Optional in the interface
+    apiKey: string; // Optional in the interface
+}
+
+// Helper function to fetch data with timeout
+const fetchGuestyData = async (url: string, token: string, action: string): Promise<any> => {
+    const options: RequestInit = {
         method: "GET",
         headers: {
             accept: "application/json; charset=utf-8",
             authorization: `Bearer ${token}`,
         },
     };
+    const timeout = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
+    );
 
-    const response = await handleFetch(url, options, action);
-    if (!response.success) {
-        throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
+    try {
+        const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
+        const response = await Promise.race([fetchPromise, timeout]);
+
+        if (!response.success) {
+            throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
+        }
+        return response.data;
+    } catch (error) {
+        console.error(`Error in fetchGuestyData: ${error.message}`);
+        throw error;
     }
-    return response.data;
 };
 
+
+// Helper function to fetch Lodgify data with timeout
 const fetchLodgifyData = async (
     url: string,
-    keys: keysType,
+    keys: tokenType, // Use tokenType as the type for keys
     action: string
-) => {
+): Promise<any> => {
     const { appKey, apiKey } = keys;
-    const options = {
+    const options: RequestInit = {
         method: "GET",
         headers: {
             accept: "application/json",
-            "X-ApiKey": apiKey || "",
-            "X-App-Key": appKey || "",
+            "X-ApiKey": apiKey || "", // Ensure these are strings
+            "X-App-Key": appKey || "", // Ensure these are strings
         },
     };
 
-    const response = await handleFetch(url, options, action);
-    if (!response.success) {
-        throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
+    const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
+    );
+
+    try {
+        const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
+        const response = await Promise.race([fetchPromise, timeout]);
+
+        if (!response.success) {
+            throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
+        }
+        return response.data;
+    } catch (error) {
+        console.error(`Error in fetchLodgifyData: ${error.message}`);
+        throw error;
     }
-    return response.data;
 };
+
+
+
 // Define your routes with robust error handling
+
 const routes = {
     fetchGuestyListings: async (token: string) => {
         const response = await fetchGuestyData(
@@ -142,18 +182,18 @@ const routes = {
         return response
 
     },
-    fetchGuestyNextPage: async (token: string,params:ParamsNextPageType) => {
-        const {nextPage} = params;
-    
+    fetchGuestyNextPage: async (token: string, params: ParamsNextPageType) => {
+        const { nextPage } = params;
+
         const response = await fetchGuestyData(
             `https://booking.guesty.com/api/listings?cursor=${nextPage}&limit=9`,
             token,
             "fetchGuestyNextPage"
         )
-        
+
         const coverted_listings = response.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
-      
-        return { filteredListings: coverted_listings,pagination:response.pagination.cursor.next };
+
+        return { filteredListings: coverted_listings, pagination: response.pagination.cursor.next };
 
     },
     fetchGuestyListingsDates: async (token: string, params: ParamsDatesSearchType) => {
@@ -235,8 +275,13 @@ const routes = {
                 `Failed to fetch GuestyListingQuote: ${response.message}`
             );
         }
+        const apiQuote = response.data
 
-        return response.data;
+        //convert API CALL TO FRONT END REQUIREMENT 
+        const quote = new GUESTY_QUOTE_TO_CLIENT_LISTING_QUOTE(apiQuote as guesty_quote);
+        const CONVERTED_QUOTE = quote.convert();
+
+        return CONVERTED_QUOTE;
     },
     fetchGuestyListingAvailabilities: async (
         token: string,
@@ -253,6 +298,12 @@ const routes = {
 };
 
 const routesLodgify = {
+    fetchLodgifyCurrencies: async (keys: keysType, params?: any) =>
+        fetchLodgifyData(
+            `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=1&size=${50}`,
+            keys,
+            "fetchLodgifyListings"
+        ),
     fetchLodgifyListings: async (keys: keysType, params?: any) =>
         fetchLodgifyData(
             `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=1&size=${50}`,
@@ -433,12 +484,12 @@ const actions = {
                 routes.fetchGuestyListingReviews(listingId, token),
                 routes.fetchGuestyListingAvailabilities(token, params)
             ]);
-     
+
             // Convert listing to Client Requirement
             const listing = new client_listing_detail_Converter(listingDetails);
             const singleListing = listing.convert();
             const availabilities = availabilitie.filter((date) => date.status !== "available")
-            return { singleListing, reviews, availabilities }; 
+            return {listingDetails, singleListing, reviews, availabilities };
         } catch (error) {
             console.error(
                 "Error fetching listing details or reviews:",
