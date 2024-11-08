@@ -61,16 +61,20 @@ interface ParamsQuoteType {
     };
 }
 
+interface ParamsPaymentProviderType {
+    listingId: string;
+}
+
 interface ParamsDatesSearchType {
     listingId: string;
     search: {
         guestsCount?: number
         checkInDateLocalized: string;
         checkOutDateLocalized: string;
-        location?: {
-            city: string | "";
-            state: string | "";
-            country: string | "";
+        location: {
+            city?: string | "";
+            state?: string | "";
+            country?: string | "";
         }
 
     };
@@ -197,7 +201,8 @@ const routes = {
 
     },
     fetchGuestyListingsDates: async (token: string, params: ParamsDatesSearchType) => {
-        const { location } = params.search;
+        console.log(params)
+        const  {location}  = params.search || {city:"",state:"",country:""};
         const { guestsCount, checkInDateLocalized, checkOutDateLocalized } = params.search;
 
         // Format dates using dayjs
@@ -205,7 +210,7 @@ const routes = {
         const checkOut = dayjs(checkOutDateLocalized).format("YYYY-MM-DD");
 
         // Extract location details
-        const city = location?.city;
+        const city = location.city ;
         const state = location?.state;
         const country = location?.country;
 
@@ -294,6 +299,17 @@ const routes = {
             token,
             "fetchGuestyListingAvailabilities"
         );
+    },
+    fetchGuestyPaymentProviderID: async (token: string,params:ParamsPaymentProviderType) => {
+        
+        const response = await fetchGuestyData(
+            `https://booking.guesty.com/api/listings/${params.listingId}/payment-provider`,
+            token,
+            "fetchGuestyPaymentProviderID"
+        )
+
+        return response
+
     },
 };
 
@@ -419,12 +435,12 @@ const routesLodgify = {
     },
 
     fetchLodgifyListingsDates: async (keys: keysType, params?: any) => {
-        const { availabilities } = params;
-        const { fromDate, toDate } = availabilities;
-        const fromDateISO = dayjs(fromDate).toISOString();
-        const toDateISO = dayjs(toDate).toISOString();
+        const { search } = params;
+        const { checkInDateLocalized, checkOutDateLocalized } = search;
+
+        console.log("SEARCHHH",checkInDateLocalized,checkOutDateLocalized)
         return fetchLodgifyData(
-            `https://api.lodgify.com/v1/availability?periodStart=${fromDateISO}&periodEnd=${toDateISO}`,
+            `https://api.lodgify.com/v1/availability?periodStart=${checkInDateLocalized}&periodEnd=${checkOutDateLocalized}`,
             keys,
             "fetchLodgifyListingsDates"
         )
@@ -461,7 +477,6 @@ const actions = {
             throw new Error(`Fetching failed: ${error.message}`);
         }
     },
-
     getGuesty_ListingDetails: async (
         internal_ID: string,
         params: ParamsListingDetailsType
@@ -489,7 +504,7 @@ const actions = {
             const listing = new client_listing_detail_Converter(listingDetails);
             const singleListing = listing.convert();
             const availabilities = availabilitie.filter((date) => date.status !== "available")
-            return {listingDetails, singleListing, reviews, availabilities };
+            return {singleListing, reviews, availabilities };
         } catch (error) {
             console.error(
                 "Error fetching listing details or reviews:",
@@ -519,6 +534,40 @@ const actions = {
             return { propertyId: listingId, disabledDatesOnly };
         } catch (error) {
             console.error("Error fetching listings or cities:", error.message);
+            throw new Error(`Fetching failed: ${error.message}`);
+        }
+    },
+    getGuesty_PaymentPage: async (
+        internal_ID: string,
+        params: ParamsListingDetailsType
+    ) => {
+        const { listingId } = params;
+        const tokenResponse = await getAuth(internal_ID, false);
+        if (!tokenResponse.success) {
+            throw new Error(`Token validation failed: ${tokenResponse.message}`);
+        }
+
+        const token = tokenResponse.token;
+        if (!token) {
+            throw new Error("Token is undefined");
+        }
+
+        try {
+            // Fetch listing details and reviews
+            const [listingDetails, paymentProvider ] = await Promise.all([
+                routes.fetchGuestyListingDetails(listingId, token),
+                routes.fetchGuestyPaymentProviderID(token, params)
+            ]);
+
+            // Convert listing to Client Requirement
+            const listing = new client_listing_detail_Converter(listingDetails);
+            const singleListing = listing.convert();
+            return {singleListing, paymentProvider };
+        } catch (error) {
+            console.error(
+                "Error fetching PaymentPage:",
+                error.message
+            );
             throw new Error(`Fetching failed: ${error.message}`);
         }
     },
@@ -564,17 +613,16 @@ const actions = {
         }
     },
 
-    getLodgify_Listings_search: async (internal_ID: string, params: ParamsAvailabilitiesType) => {
+    getLodgify_Listings_search: async (internal_ID: string, params: ParamsDatesSearchType) => {
         const keys = await getLodgifyKeys(internal_ID);
-
-
-
         const { ApiKey, AppKey } = keys.client;
 
         if (!ApiKey || !AppKey) {
             throw new Error("Missing Lodgify API keys");
         }
         const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
+
+        console.log(params)
 
         try {
             const [AvailableListings, listings] = await Promise.all([
@@ -584,10 +632,11 @@ const actions = {
                 routesLodgify.fetchLodgifyListings(keysObject),
 
             ]);
-            const { fromDate, toDate } = params.availabilities;
+            const { checkInDateLocalized, checkOutDateLocalized,guestsCount } = params.search;
 
-            const START = dayjs(fromDate).format('YYYY-MM-DD');
-            const END = dayjs(toDate).format('YYYY-MM-DD');
+            const START = dayjs(checkInDateLocalized).format('YYYY-MM-DD');
+            const END = dayjs(checkOutDateLocalized).format('YYYY-MM-DD');
+
 
             // Step 1: Filter AvailableListings directly for properties bookable within selected dates
             const availableIds = new Set(
@@ -603,25 +652,11 @@ const actions = {
                 }
                 return acc;
             }, []);
-            console.log(fromDate, toDate)
-            console.log(availableIds)
 
-            const cities = {
-                results: filteredListings.map((i) => ({
-                    city: i.address.city,
-                    state: i.address.state,
-                    country: i.address.country
-                }))
-                    .filter((value, index, self) =>
-                        index === self.findIndex((t) =>
-                            t.city === value.city && t.state === value.state
-                        )
-                    )
 
-            }
-            return { filteredListings };
+            return {filteredListings };
         } catch (error) {
-            console.error("Error fetching listings or cities:", error.message);
+            console.error("Error fetching Listings_search:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
         }
     },
