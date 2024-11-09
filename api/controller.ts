@@ -201,7 +201,6 @@ const routes = {
 
     },
     fetchGuestyListingsDates: async (token: string, params: ParamsDatesSearchType) => {
-        console.log(params)
         const  {location}  = params.search || {city:"",state:"",country:""};
         const { guestsCount, checkInDateLocalized, checkOutDateLocalized } = params.search;
 
@@ -227,7 +226,7 @@ const routes = {
             url += `&country=${encodeURIComponent(country)}`;
         }
 
-        console.log(`Fetching listings with URL: ${url}`);
+       // console.log(`Fetching listings with URL: ${url}`);
 
         // Fetch data using the constructed URL
         const searchResult = await fetchGuestyData(url, token, "fetchGuestyListingsDates");
@@ -383,7 +382,6 @@ const routesLodgify = {
             "fetchLodgifyListingDetailsBETA"
         ),
     fetchLodgifyListingInfo: async (keys: keysType, params: any, roomId?: number) => {
-        console.log(params)
         const { listingId } = params;
         return fetchLodgifyData(
             `https://api.lodgify.com/v1/properties/${listingId}/rooms/${375943}`,
@@ -437,8 +435,6 @@ const routesLodgify = {
     fetchLodgifyListingsDates: async (keys: keysType, params?: any) => {
         const { search } = params;
         const { checkInDateLocalized, checkOutDateLocalized } = search;
-
-        console.log("SEARCHHH",checkInDateLocalized,checkOutDateLocalized)
         return fetchLodgifyData(
             `https://api.lodgify.com/v1/availability?periodStart=${checkInDateLocalized}&periodEnd=${checkOutDateLocalized}`,
             keys,
@@ -622,8 +618,6 @@ const actions = {
         }
         const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
 
-        console.log(params)
-
         try {
             const [AvailableListings, listings] = await Promise.all([
                 //Fectch Availabilities and pass search params
@@ -633,10 +627,8 @@ const actions = {
 
             ]);
             const { checkInDateLocalized, checkOutDateLocalized,guestsCount } = params.search;
-
             const START = dayjs(checkInDateLocalized).format('YYYY-MM-DD');
             const END = dayjs(checkOutDateLocalized).format('YYYY-MM-DD');
-
 
             // Step 1: Filter AvailableListings directly for properties bookable within selected dates
             const availableIds = new Set(
@@ -644,7 +636,6 @@ const actions = {
                     .filter(listing => listing.is_available && listing.period_start === START && listing.period_end === END)
                     .map(listing => listing.property_id)
             );
-
             // Step 2: Convert listings to FRONTEND format and filter active listings in one pass
             const filteredListings = listings.items.reduce((acc, lst) => {
                 if (lst.is_active && availableIds.has(lst.id)) {

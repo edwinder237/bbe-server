@@ -17,14 +17,14 @@ export default async function tokenValidator( internal_ID, needNewToken ) {
         return { success: false, message: 'Client data is missing, cannot fetch new token' };
       }
 
-      console.log(`Client ID: ${internal_ID} - Token expired, fetching new token...`);
+     // console.log(`Client ID: ${internal_ID} - Token expired, fetching new token...`);
       const newToken = await fetchNewToken(internal_ID, authKeys);
 
-      console.log(`Client ID: ${internal_ID} - New token fetched successfully.`);
+      //console.log(`Client ID: ${internal_ID} - New token fetched successfully.`);
       return { success: true, message: 'Token refreshed', newToken };
     } 
 
-    console.log(`Client ID: ${internal_ID} - Token is valid.`);
+   // console.log(`Client ID: ${internal_ID} - Token is valid.`);
     return { success: true, message: 'Token is still valid', token: tokenStatus.token };
     
   } catch (error) {

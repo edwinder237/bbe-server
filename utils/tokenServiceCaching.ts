@@ -46,7 +46,7 @@ export async function isTokenExpired(internal_ID: string): Promise<TokenStatus> 
 
     const currentTime = Math.floor(Date.now() / 1000);
     if (cachedToken && currentTime < cachedToken.expiry - 3600) {
-      console.log(`Token fetched from KV cache for client: ${internal_ID}`);
+   //   console.log(`Token fetched from KV cache for client: ${internal_ID}`);
       return { expired: false, token: decrypt(cachedToken.token) };
     }
 
@@ -57,7 +57,7 @@ export async function isTokenExpired(internal_ID: string): Promise<TokenStatus> 
     });
 
     if (!client?.accessToken || !client.tokenExpire || currentTime >= client.tokenExpire - 3600) {
-      console.log(`Fetching new token for client: ${internal_ID}`);
+    //  console.log(`Fetching new token for client: ${internal_ID}`);
       const newToken = await fetchNewToken(internal_ID, {
         clientID: client?.clientID,
         clientSecret: client?.clientSecret,
@@ -67,7 +67,7 @@ export async function isTokenExpired(internal_ID: string): Promise<TokenStatus> 
     }
 
     await kv.set(cacheKey, { token: client.accessToken, expiry: client.tokenExpire });
-    console.log(`Token fetched from database for client: ${internal_ID}`);
+    //console.log(`Token fetched from database for client: ${internal_ID}`);
     return { expired: false, token: decrypt(client.accessToken) };
   } catch (error) {
     console.error('Error checking token expiration:', error);

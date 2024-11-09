@@ -31,7 +31,7 @@ export async function fetchNewTokenFromGuesty(authKeys:any): Promise<any> {
       throw new Error(`Token fetch error: ${JSON.stringify(errorData)}`);
     }
 
-    console.log('New token fetched successfully from Guesty API.');
+   // console.log('New token fetched successfully from Guesty API.');
     return response.json();
   } catch (error) {
     console.error('Error fetching new token:', error);

@@ -33,7 +33,7 @@ interface LodgifyKeysType {
  * @returns {Promise<TokenStatus>} - Object with `expired` status and decrypted `token` if valid.
  */
 export async function isTokenExpired(internal_ID: string): Promise<TokenStatus> {
-  console.log('Fetching encrypted token from DB', internal_ID);
+  //console.log('Fetching encrypted token from DB', internal_ID);
   
   try {
     const client = await prisma.client.findUnique({
@@ -76,7 +76,7 @@ export async function fetchNewToken(internal_ID: string, authKeys: any): Promise
     const encryptedKey = encrypt(access_token);
     const expiryInSeconds = Math.floor(Date.now() / 1000) + expires_in;
 
-    console.log('Updating DB with encrypted token and expiry');
+   // console.log('Updating DB with encrypted token and expiry');
     await prisma.client.update({
       where: { cuid: internal_ID },
       data: {
@@ -85,7 +85,7 @@ export async function fetchNewToken(internal_ID: string, authKeys: any): Promise
       },
     });
 
-    console.log('DB updated with encrypted token');
+   // console.log('DB updated with encrypted token');
     return access_token;
   } catch (error) {
     console.error('Error fetching new token:', error);
@@ -96,7 +96,7 @@ export async function fetchNewToken(internal_ID: string, authKeys: any): Promise
 }
 
 export async function getLodgifyKeys(internal_ID: string): Promise<LodgifyKeysType> {
-  console.log('Fetching encrypted Lodgify AuthKeys from DB', internal_ID);
+ // console.log('Fetching encrypted Lodgify AuthKeys from DB', internal_ID);
   
   try {
     const client = await prisma.client.findUnique({
