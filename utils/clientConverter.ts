@@ -431,7 +431,7 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
 
   private getSalesTaxes(taxAmount:number,currency:string) {
     return [{
-      title: "sales tax",
+      title: "Sales Tax",
       amount: taxAmount,
       type: "tax",
       currency,
