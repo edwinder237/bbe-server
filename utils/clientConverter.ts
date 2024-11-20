@@ -405,6 +405,7 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
     return {
       propertyId: this.input.propertyId.toString(),
       currency: this.input.currencyCode,
+      ratePlanId:"",
 
       // Date Information
       lengthOfStay: this.input?.rentalPrice?.nights,
@@ -492,6 +493,7 @@ export class GUESTY_QUOTE_TO_CLIENT_LISTING_QUOTE {
       expiresAt: this.input.expiresAt,
       propertyId: this.input.createdAt,
       currency: quote.currency,
+      ratePlanId: this.input.rates.ratePlans[0].ratePlan._id,
 
       // Date Information
       checkInDateLocalized: this.input.checkInDateLocalized,
@@ -576,3 +578,5 @@ private convertInvoiceItems(
   }
 
 }
+
+

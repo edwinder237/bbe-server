@@ -61,6 +61,21 @@ interface ParamsQuoteType {
     };
 }
 
+interface ParamsReservationType {
+    listingId: string;
+    reservation: {
+        quoteId: string; // Required
+        ratePlanID: string; // Required
+        ccToken: string; // Required
+        guest:{
+            firstName:string; // Required
+            lastName:string; // Required
+            email:string; // Required
+            phone: number //optional
+        } 
+    };
+}
+
 interface ParamsPaymentProviderType {
     listingId: string;
 }
@@ -117,11 +132,12 @@ const fetchGuestyData = async (url: string, token: string, action: string): Prom
             accept: "application/json; charset=utf-8",
             authorization: `Bearer ${token}`,
         },
+        
     };
     const timeout = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
     );
-
+console.log(token)
     try {
         const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
         const response = await Promise.race([fetchPromise, timeout]);
@@ -178,7 +194,7 @@ const fetchLodgifyData = async (
 const routes = {
     fetchGuestyListings: async (token: string) => {
         const response = await fetchGuestyData(
-            "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=9",
+            "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=60",
             token,
             "fetchGuestyListings"
         )
@@ -308,6 +324,43 @@ const routes = {
         )
 
         return response
+
+    },
+    fetchGuestyReservation: async (token: string,params:ParamsReservationType) => {
+        const {quoteId,ratePlanID,ccToken,guest } = params.reservation;
+        const timeout = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
+        );
+
+        const options: RequestInit = {
+            method: "POST",
+            headers: {
+                accept: "application/json; charset=utf-8",
+                'content-type': 'application/json',
+                authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                guest: {firstName: guest.firstName, lastName: guest.lastName, email: guest.email, phone: guest?.phone},
+                policy: {marketing: {isAccepted: true}},
+                ccToken: ccToken,
+                ratePlanId: ratePlanID
+              })
+            
+        }
+        const url = `https://booking.guesty.com/api/reservations/quotes/${quoteId}/instant`;
+        const action = "fetchGuestyReservation"
+        try {
+            const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
+            const response = await Promise.race([fetchPromise, timeout]);
+    
+            if (!response.success) {
+                throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
+            }
+            return response.data;
+        } catch (error) {
+            console.error(`Error in fetchGuestyData: ${error.message}`);
+            throw error;
+        }
 
     },
 };
@@ -626,7 +679,9 @@ const actions = {
                 routesLodgify.fetchLodgifyListings(keysObject),
 
             ]);
+            
             const { checkInDateLocalized, checkOutDateLocalized,guestsCount } = params.search;
+            console.log(checkInDateLocalized,checkOutDateLocalized,guestsCount)
             const START = dayjs(checkInDateLocalized).format('YYYY-MM-DD');
             const END = dayjs(checkOutDateLocalized).format('YYYY-MM-DD');
 
@@ -644,7 +699,7 @@ const actions = {
                 return acc;
             }, []);
 
-
+            
             return {filteredListings };
         } catch (error) {
             console.error("Error fetching Listings_search:", error.message);

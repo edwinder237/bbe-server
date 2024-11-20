@@ -166,11 +166,11 @@ export type Property_info_by_Id_includeInOut = {
       for: string;
     }[];
   };
-  currency:{
+  currency: {
     id: number;
     code: string;
     name: string;
-    euro_forex: number; 
+    euro_forex: number;
     symbol: string;
   }
   currency_code?: string;
@@ -626,6 +626,53 @@ export type guesty_quote = {
   promotions: object; // Modify based on the promotions structure
 };
 
+export type guesty_reservation = {
+  _id: string;
+  createdAt: string;
+  customFields: any[]; // Specify type if known
+  status: "confirmed" | "pending" | "cancelled"; // Extend with other possible statuses
+  stay: {
+    checkInDateLocalized: string;
+    checkOutDateLocalized: string;
+    guestsCount: number;
+    numberOfGuests: {
+      numberOfAdults: number;
+      numberOfChildren?: number; // Optional if not provided
+      numberOfInfants?: number; // Optional if not provided
+    };
+    unitTypeId: string;
+    unitId: string;
+    eta: string; // Estimated Time of Arrival in ISO format
+    etd: string; // Estimated Time of Departure in ISO format
+    ratePlanId: string;
+  }[];
+  platform: "direct" | "OTA" | string; // Extend with possible platforms
+  confirmationCode: string;
+  accountId: string;
+  source: "BE-API" | "OTA" | string; // Extend with possible sources
+  confirmedAt: string;
+  guestStay: {
+    status: "not_set" | "checked_in" | "checked_out" | string; // Extend with possible statuses
+    createdAt: string;
+    updatedAt: string;
+  };
+  __v: number;
+  ratePlanId: string;
+  unitTypeId: string;
+  guestsCount: number;
+  numberOfGuests: {
+    numberOfAdults: number;
+    numberOfChildren?: number; // Optional if not provided
+    numberOfInfants?: number; // Optional if not provided
+  };
+  checkInDateLocalized: string;
+  checkOutDateLocalized: string;
+  eta: string; // Estimated Time of Arrival in ISO format
+  etd: string; // Estimated Time of Departure in ISO format
+  unitId: string;
+  guestId: string;
+}
+
 
 
 export type listings_search_client = {
@@ -679,7 +726,7 @@ export type listings_search_client = {
       next?: string;
     }
   }
-  
+
 };
 interface amenitiesType {
   allAmenities: string[]
@@ -687,8 +734,8 @@ interface amenitiesType {
 
 }
 
-interface galleryImgsType{
-    original: string
+interface galleryImgsType {
+  original: string
 }
 export type listing_detail_client = {
   id?: string;
@@ -698,7 +745,7 @@ export type listing_detail_client = {
   max_price?: number
   min_Price?: number
   prices?: {
-    lodgifyDisplayPrice?:number
+    lodgifyDisplayPrice?: number
     max_price: number
     basePrice: number;
     currency: string;
@@ -711,16 +758,16 @@ export type listing_detail_client = {
   base_currency?: string
 
   //OPTIONAL 
-  
+
   roomId?: number,
   terms?: {
     minNights?: number;
     maxNights?: number
   },
   timezone?: string;
-  hostLanguages?:string[];
+  hostLanguages?: string[];
   publicDescription?: {
-    
+
     transit?: string;
     neighborhood?: string;
     space?: string;
@@ -736,7 +783,7 @@ export type listing_detail_client = {
     total: number
   },
   address?: {
-    isAddressHidden?:boolean;
+    isAddressHidden?: boolean;
     city?: string,
     country?: string,
     full?: string,
@@ -744,7 +791,7 @@ export type listing_detail_client = {
     lng?: number,
     state?: string,
     street?: string,
-    zipCode?:string
+    zipCode?: string
   },
 
   bathrooms?: number,
@@ -851,6 +898,7 @@ export type Listing_Quote_Client = {
   propertyId?: string;
   roomId?: string;
   currency: string;
+  ratePlanId: string;
 
   // Date Information
   checkInDateLocalized?: string; // Date in the format YYYY-MM-DD
@@ -865,10 +913,10 @@ export type Listing_Quote_Client = {
 
   // Invoice Details
   preTotal: number;
-  nightlyTotal:number;
+  nightlyTotal: number;
   nightlyPrice: number;
   subTotal?: number;
-  stayTotal:number;
+  stayTotal: number;
 
   // Fees Information
   totalFees?: number;
@@ -895,7 +943,7 @@ export type Listing_Quote_Client = {
     amount: number;
     type: string;
     currency?: string;
-    isCurrent?:boolean;
+    isCurrent?: boolean;
   }[];
 };
 
