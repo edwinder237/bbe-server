@@ -133,11 +133,10 @@ const fetchGuestyData = async (url: string, token: string, action: string): Prom
             authorization: `Bearer ${token}`,
         },
         
-    };
+    }; console.log(token)
     const timeout = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
     );
-console.log(token)
     try {
         const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
         const response = await Promise.race([fetchPromise, timeout]);
