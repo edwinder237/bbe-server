@@ -133,14 +133,13 @@ const fetchGuestyData = async (url: string, token: string, action: string): Prom
             authorization: `Bearer ${token}`,
         },
         
-    }; console.log(token)
+    }; 
     const timeout = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
     );
     try {
         const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
         const response = await Promise.race([fetchPromise, timeout]);
-
         if (!response.success) {
             throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
         }
@@ -149,6 +148,7 @@ const fetchGuestyData = async (url: string, token: string, action: string): Prom
         console.error(`Error in fetchGuestyData: ${error.message}`);
         throw error;
     }
+
 };
 
 
@@ -218,7 +218,6 @@ const routes = {
     fetchGuestyListingsDates: async (token: string, params: ParamsDatesSearchType) => {
         const  {location}  = params.search || {city:"",state:"",country:""};
         const { guestsCount, checkInDateLocalized, checkOutDateLocalized } = params.search;
-
         // Format dates using dayjs
         const checkIn = dayjs(checkInDateLocalized).format("YYYY-MM-DD");
         const checkOut = dayjs(checkOutDateLocalized).format("YYYY-MM-DD");
@@ -228,26 +227,35 @@ const routes = {
         const state = location?.state;
         const country = location?.country;
 
-        // Build the base URL and append parameters conditionally
-        let url = `https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&checkIn=${checkIn}&checkOut=${checkOut}&limit=9`;
+        const baseUrl: string = "https://booking.guesty.com/api/listings";
+        const url_params: string[] = [];
+        
+        // Add required parameters in the correct order
+        url_params.push(`minOccupancy=${guestsCount}`)
+        url_params.push(`numberOfBedrooms=0`);
+        url_params.push(`numberOfBathrooms=0`);
+        
+        // Add optional parameters
+        if (city) url_params.push(`city=${encodeURIComponent(city)}`);
+        if (country) url_params.push(`country=${encodeURIComponent(country)}`);
+        if (state) url_params.push(`state=${encodeURIComponent(state)}`);
+        
+        // Add date and limit parameters
+        checkInDateLocalized && url_params.push(`checkIn=${encodeURIComponent(checkIn)}`);
+        checkOutDateLocalized && url_params.push(`checkOut=${encodeURIComponent(checkOut)}`);
+        url_params.push(`limit=60`);
+        
+        // Construct the full URL
+        const url: string = `${baseUrl}?${url_params.join("&")}`;
 
-        if (city) {
-            url += `&city=${encodeURIComponent(city)}`;
-        }
-        if (state) {
-            url += `&state=${encodeURIComponent(state)}`;
-        }
-        if (country) {
-            url += `&country=${encodeURIComponent(country)}`;
-        }
-
-       // console.log(`Fetching listings with URL: ${url}`);
+        console.log(`Fetching listings dates with URL: ${url}`);
 
         // Fetch data using the constructed URL
         const searchResult = await fetchGuestyData(url, token, "fetchGuestyListingsDates");
 
         const listings = await searchResult;
         const coverted_listings = listings.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
+
 
         return { filteredListings: coverted_listings };
     },
@@ -283,12 +291,28 @@ const routes = {
                 checkInDateLocalized: params.quote.checkInDateLocalized,
                 checkOutDateLocalized: params.quote.checkOutDateLocalized,
                 listingId: params.listingId,
-                coupons: params.quote?.coupons,
-            }),
+                ...(params.quote?.coupons ? { coupons: params.quote.coupons } : {}), // Only include if coupons exists
+              }),
         };
-
+        
+        //handle request made on invalid dates   
         const response = await handleFetch(url, options, "fetchGuestyListingQuote");
-
+        console.log(response)
+        if (response === "LISTING_IS_NOT_AVAILABLE") {
+            return {
+                code: "LISTING_IS_NOT_AVAILABLE",
+                status: 400,
+                message: "The selected dates are unavailable. Please choose different dates."
+            };
+        }
+        //handle bad coupon request 
+        if (response === "INVALID_COUPON") {
+            return {
+                code: "INVALID_COUPON",
+                status: 400,
+                message: "Valid coupons does not match requested coupons"
+            };
+        }
         if (!response.success) {
             throw new Error(
                 `Failed to fetch GuestyListingQuote: ${response.message}`
@@ -340,9 +364,13 @@ const routes = {
             },
             body: JSON.stringify({
                 guest: {firstName: guest.firstName, lastName: guest.lastName, email: guest.email, phone: guest?.phone},
-                policy: {marketing: {isAccepted: true}},
                 ccToken: ccToken,
-                ratePlanId: ratePlanID
+                ratePlanId: ratePlanID,
+                policy: {
+                    privacy: {isAccepted: true, version: 1, dateOfAcceptance: new Date()},
+                    termsAndConditions: {isAccepted: true},
+                    marketing: {isAccepted: false}
+                  }
               })
             
         }
@@ -519,7 +547,7 @@ const actions = {
             const pagination = listings.pagination
             const coverted_listings = listings.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
 
-            return { coverted_listings, cities, pagination }; // Return listings and cities only
+            return { coverted_listings, cities, pagination }; 
         } catch (error) {
             console.error("Error fetching listings or cities:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
@@ -835,6 +863,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const params = req.body.params || {}; // Ensure params are passed
             const actionResults = await routes[action](tokenResponse.token, params);
+            if(actionResults.code === "LISTING_IS_NOT_AVAILABLE"){
+                return res.status(200).json(actionResults);
+            }
             return res.status(200).json(actionResults);
         } else {
             return res.status(400).json({ error: "Invalid action" });

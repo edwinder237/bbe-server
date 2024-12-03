@@ -553,6 +553,7 @@ private convertInvoiceItems(
   // Filter out items with type "ACCOMMODATION_FARE" and then filter based on the input type
   return details
     .filter((detail) => detail.type !== "ACCOMMODATION_FARE")
+    .filter((detail)=>detail.type !=="DISCOUNT")
     .filter((detail) =>
       type === "tax"
         ? taxes_codes.has(detail.type) // Check for tax types using `Set` for better performance

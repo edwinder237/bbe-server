@@ -3,13 +3,17 @@ export const handleFetch = async (url: string, options: RequestInit, actionName:
 
     try {
         const response = await fetch(url, options);
-
+        const data = await response.json();
+        
         // Check for HTTP errors
         if (!response.ok) {
+            if(url === "https://booking.guesty.com/api/reservations/quotes"){
+                return data.error.code;
+            }else
             throw new Error(`Error in action '${actionName}': ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+
         const endTime = Date.now(); // Capture the end time
         const duration = endTime - startTime; // Calculate duration
 
