@@ -72,7 +72,21 @@ interface ParamsReservationType {
             lastName:string; // Required
             email:string; // Required
             phone: number //optional
-        } 
+        },
+        policy: {
+            privacy: {
+              dateOfAcceptance: Date;
+              isAccepted: boolean;
+              version: number;
+            };
+            termsAndConditions: {
+              isAccepted: boolean;
+              dateOfAcceptance: Date;
+            };
+            marketing: {
+              isAccepted: boolean;
+            };
+          } 
     };
 }
 
@@ -133,7 +147,7 @@ const fetchGuestyData = async (url: string, token: string, action: string): Prom
             authorization: `Bearer ${token}`,
         },
         
-    }; 
+    };
     const timeout = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
     );
@@ -221,7 +235,6 @@ const routes = {
         // Format dates using dayjs
         const checkIn = dayjs(checkInDateLocalized).format("YYYY-MM-DD");
         const checkOut = dayjs(checkOutDateLocalized).format("YYYY-MM-DD");
-
         // Extract location details
         const city = location.city ;
         const state = location?.state;
@@ -350,7 +363,7 @@ const routes = {
 
     },
     fetchGuestyReservation: async (token: string,params:ParamsReservationType) => {
-        const {quoteId,ratePlanID,ccToken,guest } = params.reservation;
+        const {quoteId,ratePlanID,ccToken,guest,policy } = params.reservation;
         const timeout = new Promise<never>((_, reject) => 
             setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
         );
@@ -367,9 +380,9 @@ const routes = {
                 ccToken: ccToken,
                 ratePlanId: ratePlanID,
                 policy: {
-                    privacy: {isAccepted: true, version: 1, dateOfAcceptance: new Date()},
-                    termsAndConditions: {isAccepted: true},
-                    marketing: {isAccepted: false}
+                    privacy: {isAccepted: policy.privacy.isAccepted, version: policy.privacy.version, dateOfAcceptance: policy.privacy.dateOfAcceptance},
+                    termsAndConditions: {isAccepted: policy.termsAndConditions.isAccepted},
+                    marketing: {isAccepted: policy.marketing.isAccepted}
                   }
               })
             
@@ -379,7 +392,6 @@ const routes = {
         try {
             const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
             const response = await Promise.race([fetchPromise, timeout]);
-    
             if (!response.success) {
                 throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
             }
