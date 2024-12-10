@@ -67,26 +67,26 @@ interface ParamsReservationType {
         quoteId: string; // Required
         ratePlanID: string; // Required
         ccToken: string; // Required
-        guest:{
-            firstName:string; // Required
-            lastName:string; // Required
-            email:string; // Required
+        guest: {
+            firstName: string; // Required
+            lastName: string; // Required
+            email: string; // Required
             phone: number //optional
         },
         policy: {
             privacy: {
-              dateOfAcceptance: Date;
-              isAccepted: boolean;
-              version: number;
+                dateOfAcceptance: Date;
+                isAccepted: boolean;
+                version: number;
             };
             termsAndConditions: {
-              isAccepted: boolean;
-              dateOfAcceptance: Date;
+                isAccepted: boolean;
+                dateOfAcceptance: Date;
             };
             marketing: {
-              isAccepted: boolean;
+                isAccepted: boolean;
             };
-          } 
+        }
     };
 }
 
@@ -129,11 +129,11 @@ interface keysType {
 
 interface FetchResponse {
     success: boolean;
-    data: any; 
+    data: any;
     message?: string;
-  }
+}
 
-  interface tokenType {
+interface tokenType {
     appKey: string; // Optional in the interface
     apiKey: string; // Optional in the interface
 }
@@ -146,9 +146,9 @@ const fetchGuestyData = async (url: string, token: string, action: string): Prom
             accept: "application/json; charset=utf-8",
             authorization: `Bearer ${token}`,
         },
-        
+
     };
-    const timeout = new Promise<never>((_, reject) => 
+    const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
     );
     try {
@@ -181,7 +181,6 @@ const fetchLodgifyData = async (
             "X-App-Key": appKey || "", // Ensure these are strings
         },
     };
-
     const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
     );
@@ -230,34 +229,34 @@ const routes = {
 
     },
     fetchGuestyListingsDates: async (token: string, params: ParamsDatesSearchType) => {
-        const  {location}  = params.search || {city:"",state:"",country:""};
+        const { location } = params.search || { city: "", state: "", country: "" };
         const { guestsCount, checkInDateLocalized, checkOutDateLocalized } = params.search;
         // Format dates using dayjs
         const checkIn = dayjs(checkInDateLocalized).format("YYYY-MM-DD");
         const checkOut = dayjs(checkOutDateLocalized).format("YYYY-MM-DD");
         // Extract location details
-        const city = location.city ;
+        const city = location.city;
         const state = location?.state;
         const country = location?.country;
 
         const baseUrl: string = "https://booking.guesty.com/api/listings";
         const url_params: string[] = [];
-        
+
         // Add required parameters in the correct order
         url_params.push(`minOccupancy=${guestsCount}`)
         url_params.push(`numberOfBedrooms=0`);
         url_params.push(`numberOfBathrooms=0`);
-        
+
         // Add optional parameters
         if (city) url_params.push(`city=${encodeURIComponent(city)}`);
         if (country) url_params.push(`country=${encodeURIComponent(country)}`);
         if (state) url_params.push(`state=${encodeURIComponent(state)}`);
-        
+
         // Add date and limit parameters
         checkInDateLocalized && url_params.push(`checkIn=${encodeURIComponent(checkIn)}`);
         checkOutDateLocalized && url_params.push(`checkOut=${encodeURIComponent(checkOut)}`);
         url_params.push(`limit=60`);
-        
+
         // Construct the full URL
         const url: string = `${baseUrl}?${url_params.join("&")}`;
 
@@ -305,9 +304,9 @@ const routes = {
                 checkOutDateLocalized: params.quote.checkOutDateLocalized,
                 listingId: params.listingId,
                 ...(params.quote?.coupons ? { coupons: params.quote.coupons } : {}), // Only include if coupons exists
-              }),
+            }),
         };
-        
+
         //handle request made on invalid dates   
         const response = await handleFetch(url, options, "fetchGuestyListingQuote");
         console.log(response)
@@ -351,8 +350,8 @@ const routes = {
             "fetchGuestyListingAvailabilities"
         );
     },
-    fetchGuestyPaymentProviderID: async (token: string,params:ParamsPaymentProviderType) => {
-        
+    fetchGuestyPaymentProviderID: async (token: string, params: ParamsPaymentProviderType) => {
+
         const response = await fetchGuestyData(
             `https://booking.guesty.com/api/listings/${params.listingId}/payment-provider`,
             token,
@@ -362,9 +361,9 @@ const routes = {
         return response
 
     },
-    fetchGuestyReservation: async (token: string,params:ParamsReservationType) => {
-        const {quoteId,ratePlanID,ccToken,guest,policy } = params.reservation;
-        const timeout = new Promise<never>((_, reject) => 
+    fetchGuestyReservation: async (token: string, params: ParamsReservationType) => {
+        const { quoteId, ratePlanID, ccToken, guest, policy } = params.reservation;
+        const timeout = new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
         );
 
@@ -376,16 +375,16 @@ const routes = {
                 authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-                guest: {firstName: guest.firstName, lastName: guest.lastName, email: guest.email, phone: guest?.phone},
+                guest: { firstName: guest.firstName, lastName: guest.lastName, email: guest.email, phone: guest?.phone },
                 ccToken: ccToken,
                 ratePlanId: ratePlanID,
                 policy: {
-                    privacy: {isAccepted: policy.privacy.isAccepted, version: policy.privacy.version, dateOfAcceptance: policy.privacy.dateOfAcceptance},
-                    termsAndConditions: {isAccepted: policy.termsAndConditions.isAccepted},
-                    marketing: {isAccepted: policy.marketing.isAccepted}
-                  }
-              })
-            
+                    privacy: { isAccepted: policy.privacy.isAccepted, version: policy.privacy.version, dateOfAcceptance: policy.privacy.dateOfAcceptance },
+                    termsAndConditions: { isAccepted: policy.termsAndConditions.isAccepted },
+                    marketing: { isAccepted: policy.marketing.isAccepted }
+                }
+            })
+
         }
         const url = `https://booking.guesty.com/api/reservations/quotes/${quoteId}/instant`;
         const action = "fetchGuestyReservation"
@@ -459,8 +458,7 @@ const routesLodgify = {
             console.error("Error fetching Lodgify listings:", error);
             throw error;
         }
-    }
-    ,
+    },
     fetchLodgifyListingDetails: async (keys: keysType, params: any) =>
         fetchLodgifyData(
             `https://api.lodgify.com/v1/properties/${params.listingId}?includeInOut=false`,
@@ -510,8 +508,6 @@ const routesLodgify = {
         // Await the result from QuoteData and return it
         return await QuoteData();
     },
-
-
     fetchLodgifyListingAvailabilities: async (keys: keysType, params?: any) => {
         const { listingId, availabilities } = params;
         const { fromDate, toDate } = availabilities;
@@ -523,15 +519,15 @@ const routesLodgify = {
             "fetchLodgifyListingAvailabilities"
         )
     },
-
     fetchLodgifyListingsDates: async (keys: keysType, params?: any) => {
-        const { search } = params;
-        const { checkInDateLocalized, checkOutDateLocalized } = search;
+        const { search } = params || {};
+        const { checkInDateLocalized, checkOutDateLocalized } = search || {};
+
         return fetchLodgifyData(
             `https://api.lodgify.com/v1/availability?periodStart=${checkInDateLocalized}&periodEnd=${checkOutDateLocalized}`,
             keys,
             "fetchLodgifyListingsDates"
-        )
+        );
     }
 
 
@@ -559,7 +555,7 @@ const actions = {
             const pagination = listings.pagination
             const coverted_listings = listings.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
 
-            return { coverted_listings, cities, pagination }; 
+            return { coverted_listings, cities, pagination };
         } catch (error) {
             console.error("Error fetching listings or cities:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
@@ -592,7 +588,7 @@ const actions = {
             const listing = new client_listing_detail_Converter(listingDetails);
             const singleListing = listing.convert();
             const availabilities = availabilitie.filter((date) => date.status !== "available")
-            return {singleListing, reviews, availabilities };
+            return { singleListing, reviews, availabilities };
         } catch (error) {
             console.error(
                 "Error fetching listing details or reviews:",
@@ -642,7 +638,7 @@ const actions = {
 
         try {
             // Fetch listing details and reviews
-            const [listingDetails, paymentProvider ] = await Promise.all([
+            const [listingDetails, paymentProvider] = await Promise.all([
                 routes.fetchGuestyListingDetails(listingId, token),
                 routes.fetchGuestyPaymentProviderID(token, params)
             ]);
@@ -650,7 +646,7 @@ const actions = {
             // Convert listing to Client Requirement
             const listing = new client_listing_detail_Converter(listingDetails);
             const singleListing = listing.convert();
-            return {singleListing, paymentProvider };
+            return { singleListing, paymentProvider };
         } catch (error) {
             console.error(
                 "Error fetching PaymentPage:",
@@ -711,35 +707,52 @@ const actions = {
         const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
 
         try {
-            const [AvailableListings, listings] = await Promise.all([
-                //Fectch Availabilities and pass search params
-                routesLodgify.fetchLodgifyListingsDates(keysObject, params),
-                //run fetchLodgifyListings and 
-                routesLodgify.fetchLodgifyListings(keysObject),
+            // Check for invalid dates and decide which function to call
+            const fetchListingsDates =
+                !params?.search?.checkInDateLocalized || !params?.search?.checkOutDateLocalized
+                    ? routesLodgify.fetchLodgifyListings(keysObject)
+                    : routesLodgify.fetchLodgifyListingsDates(keysObject, params);
 
+            // Use Promise.all to fetch both listings and availability
+            const [AvailableListings, listings] = await Promise.all([
+                fetchListingsDates,
+                routesLodgify.fetchLodgifyListings(keysObject),
             ]);
-            
-            const { checkInDateLocalized, checkOutDateLocalized,guestsCount } = params.search;
-            console.log(checkInDateLocalized,checkOutDateLocalized,guestsCount)
+
+            const { checkInDateLocalized, checkOutDateLocalized } = params?.search || {};
             const START = dayjs(checkInDateLocalized).format('YYYY-MM-DD');
             const END = dayjs(checkOutDateLocalized).format('YYYY-MM-DD');
 
-            // Step 1: Filter AvailableListings directly for properties bookable within selected dates
-            const availableIds = new Set(
-                AvailableListings
-                    .filter(listing => listing.is_available && listing.period_start === START && listing.period_end === END)
-                    .map(listing => listing.property_id)
-            );
-            // Step 2: Convert listings to FRONTEND format and filter active listings in one pass
-            const filteredListings = listings.items.reduce((acc, lst) => {
-                if (lst.is_active && availableIds.has(lst.id)) {
-                    acc.push(new ListingConverter(lst).convert());
-                }
-                return acc;
-            }, []);
+            let filteredListings;
 
-            
-            return {filteredListings };
+            if (params?.search?.checkInDateLocalized || params?.search?.checkOutDateLocalized) {
+                // Step 1: Filter AvailableListings directly for properties bookable within selected dates
+                const availableIds = new Set(
+                    AvailableListings
+                        .filter(
+                            listing =>
+                                listing.is_available &&
+                                listing.period_start === START &&
+                                listing.period_end === END
+                        )
+                        .map(listing => listing.property_id)
+                );
+
+                // Step 2: Convert listings to FRONTEND format
+                filteredListings = listings.items.reduce((acc, lst) => {
+                    if (lst.is_active && availableIds.has(lst.id)) {
+                        acc.push(new ListingConverter(lst).convert());
+                    }
+                    return acc;
+                }, []);
+            } else {
+                // Convert and return all active listings
+                filteredListings = listings.items
+                    .filter(lst => lst.is_active)
+                    .map(listing => new ListingConverter(listing).convert());
+            }
+
+            return { filteredListings };
         } catch (error) {
             console.error("Error fetching Listings_search:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
@@ -875,7 +888,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const params = req.body.params || {}; // Ensure params are passed
             const actionResults = await routes[action](tokenResponse.token, params);
-            if(actionResults.code === "LISTING_IS_NOT_AVAILABLE"){
+            if (actionResults.code === "LISTING_IS_NOT_AVAILABLE") {
                 return res.status(200).json(actionResults);
             }
             return res.status(200).json(actionResults);

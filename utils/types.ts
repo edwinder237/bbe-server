@@ -390,7 +390,10 @@ export type lodgify_quote_beta = {
     total: number;
     nightlyPrice: number;
     nights: number;
-    promotions: any[];
+    promotions: {
+      name:string;
+      value:number;
+    }[];
     roomRates: {
       name: string;
       total: number;
@@ -917,6 +920,13 @@ export type Listing_Quote_Client = {
   nightlyPrice: number;
   subTotal?: number;
   stayTotal: number;
+
+    // Promotion Information
+    totalPromo?: number;
+    promoItems?: {
+      name: string;
+      value: number;
+    }[];
 
   // Fees Information
   totalFees?: number;
