@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { incrementRequestCount } from "../utils/requestMetrics";
 import { corsMiddleware } from "../utils/corsMiddleware";
 import getAuth from "../utils/getAuth";
 import { handleFetch } from "../utils/handleFetching";
@@ -814,6 +815,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const { action, internal_ID, params } = req.body;
+        if (req.headers['x-vercel-warmup']) {
+            return res.status(200).json({ message: 'Warm-up request ignored' });
+          }
+ 
+    // Increment the request count
+    await incrementRequestCount(internal_ID);
+
 
         if (action?.startsWith("getGuesty")) {
             const actionName = action as keyof typeof actions;
