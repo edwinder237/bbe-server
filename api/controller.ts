@@ -819,8 +819,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ message: 'Warm-up request ignored' });
           }
  
-    // Increment the request count
-    await incrementRequestCount(internal_ID);
+    // Increment the request count (PROD ONLY)
+   // await incrementRequestCount(internal_ID);
 
 
         if (action?.startsWith("getGuesty")) {
