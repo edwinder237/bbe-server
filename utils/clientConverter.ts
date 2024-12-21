@@ -260,6 +260,9 @@ export class LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT {
     return {
       galleryImgs: this.convertIMGs(this.input.images),
       amenities: this.getAmenities(this.input.amenities),
+      publicDescription: {
+        summary: this.input.description ?? "",
+      },
 
     };
   }
@@ -308,7 +311,7 @@ export class LODGIFY_DETAILS_BETA_TO_LISTING_DETAILS_FORMAT { //make sure to add
         access: "",
         notes: "",
         interactionWithGuests: "",
-        summary: this.input?.description ?? "",
+        //summary: this.input?.description ?? "", this is now fetching from the room info API to assure transaltions
         houseRules: "",
       },
       beds: this.input?.sleepingArrangements?.length ?? 0,
@@ -414,33 +417,49 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
       preTotal: this.input.totalPrice.totalExcSalesTaxes,
       nightlyTotal: this.input.rentalPrice.total,
       nightlyPrice: this.input.rentalPrice.nightlyPrice,
-      subTotal: this.input.totalPrice.totalExcSalesTaxes | this.input.totalPrice.total,
+      subTotal: (this.input?.totalPrice?.totalExcSalesTaxes ?? 0) - (this?.input?.localTaxes?.total ?? 0) || this.input?.totalPrice?.total || 0,
       stayTotal: this.input.totalPrice.total,
 
-      // Fees Information
+      // Promo Information
       totalPromo: this.input.rentalPrice.promotions.reduce((sum, promotion) => sum + promotion.value, 0),
       promoItems: this.convertPromos(this.input.rentalPrice.promotions),
 
       // Fees Information
-      totalFees: (this.input.fees?.total ?? 0) + (this.input.localTaxes?.total ?? 0),
-      feesItems: this.convertInvoiceItems(this.input.fees.details, this.input.localTaxes.details, this.input.currencyCode, "fee"),
+      totalFees: (this.input.fees?.total ?? 0) ,
+      feesItems: this.convertInvoiceItems(this.input.fees.details, this.input.currencyCode, "fee"),
 
       // Taxes Information
-      totalTaxes: this.input.totalPrice.salesTaxes,
-      taxesItems: this.getSalesTaxes(this.input.totalPrice.salesTaxes, this.input.currencyCode),
+      totalTaxes: (this.input.totalPrice.salesTaxes) + (this.input.localTaxes?.total ?? 0),
+      taxesItems: this.getSalesTaxes(this.input.totalPrice.salesTaxes, this.input.currencyCode,this.input.localTaxes.details),
 
       // Taxes Information
       otherItems: this.convertPaymentsItems(this.input.scheduledPayments.payments, this.input.currencyCode, "deposit"),
     };
   }
 
-  private getSalesTaxes(taxAmount: number, currency: string) {
-    return [{
-      title: "Sales Tax",
-      amount: taxAmount,
-      type: "tax",
-      currency,
-    }];
+  private getSalesTaxes(
+    taxAmount: number,
+    currency: string,
+    taxes: { name: string; value: number }[]
+  ) {
+    return [
+      ...(taxAmount > 0
+        ? [
+            {
+              title: "Sales Tax",
+              amount: taxAmount,
+              type: "tax",
+              currency,
+            },
+          ]
+        : []),
+      ...taxes.map((tax) => ({
+        title: tax.name,
+        amount: tax.value,
+        type: "tax",
+        currency,
+      })),
+    ];
   }
 
   private convertPromos(promotions: { name: string; value: number; }[]) {
@@ -455,7 +474,6 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
   // Helper method to convert Invoice items
   private convertInvoiceItems(
     fees: { name: string; value: number }[],
-    taxes: { name: string; value: number }[],
     currency: string,
     type: string
   ) {
@@ -466,14 +484,9 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
       currency,
     }));
 
-    const Taxes = taxes.map((detail) => ({
-      title: detail.name,
-      amount: detail.value,
-      type: type,
-      currency,
-    }));
 
-    return [...Fees, ...Taxes];
+
+    return [...Fees];
   }
 
   // Helper method to convert payments items

@@ -38,6 +38,9 @@ import {
 
 
 interface ParamsListingDetailsType {
+    default_Lang?:string;
+    roomId?:string;
+    websiteId?:string
     listingId: string;
     quote?: {
         guestsCount?: number; // Required
@@ -110,7 +113,15 @@ interface ParamsDatesSearchType {
     };
 }
 
+interface ParamsLodgifySite {
+    id: string;
+    url: string;
+}
+
 interface ParamsAvailabilitiesType {
+    default_Lang?:string;
+    roomId?:string;
+    websiteId?:string
     listingId: string; // Required
     availabilities: {
         // Required
@@ -417,7 +428,8 @@ const routesLodgify = {
             keys,
             "fetchLodgifyListings"
         ),
-    fetchLodgifyListingsBETA: async () => {
+    fetchLodgifyListingsBETA: async (params) => {
+        const { id, url } = params
         const options = {
             method: "POST",
             headers: {
@@ -429,9 +441,9 @@ const routesLodgify = {
                 //must be changed
                 "Accept-Language": "En",
                 //must be changed
-                "Origin": "https://goldstarvacation.lodgify.com",
+                "Origin": url,
                 //must be changed
-                "Referer": "https://goldstarvacation.lodgify.com",
+                "Referer": url,
 
 
                 "Sec-CH-UA": '"Google Chrome";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
@@ -448,10 +460,10 @@ const routesLodgify = {
         };
 
         try {
-            const response = await fetch("https://api.lodgify.com/v2/search/311391", options);
+            const response = await fetch(`https://api.lodgify.com/v2/search/${id}`, options);
 
             if (!response.ok) {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
+                throw new Error(`Error Missing lodgify site id and url ${response.status}: ${response.statusText}`);
             }
 
             return await response.json();
@@ -472,13 +484,36 @@ const routesLodgify = {
             keys,
             "fetchLodgifyListingDetailsBETA"
         ),
-    fetchLodgifyListingInfo: async (keys: keysType, params: any, roomId?: number) => {
-        const { listingId } = params;
-        return fetchLodgifyData(
-            `https://api.lodgify.com/v1/properties/${listingId}/rooms/${375943}`,
-            keys,
-            "fetchLodgifyListingInfo"
-        )
+    fetchLodgifyListingInfo: async (keys: keysType, params: any, RoomId?: any) => {
+        const { listingId, websiteId, roomId, default_Lang } = params; // Extract relevant params
+        const url = `https://api.lodgify.com/v1/properties/${listingId}/rooms/${RoomId}?wid=${websiteId}`;
+        const { appKey, apiKey } = keys;
+        const options: RequestInit = {
+            method: "GET",
+            headers: {
+                accept: "application/json",
+                "X-ApiKey": apiKey || "", // Ensure these are strings
+                "X-App-Key": appKey || "", // Ensure these are strings
+                "Accept-Language": default_Lang || "en"
+            },
+        };
+
+        try {
+            // Use handleFetch with the required arguments
+            const fetchPromise = handleFetch(url, options, "fetchLodgifyListingInfo") as Promise<FetchResponse>;
+            const timeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error("Timeout fetching Lodgify listing info")), 10000) // 10-second timeout
+            );
+
+            const response = await Promise.race([fetchPromise, timeout]);
+            if (!response.success) {
+                throw new Error(`Failed to fetch Lodgify listing info: ${response.message}`);
+            }
+            return response.data;
+        } catch (error) {
+            console.error(`Error in fetchLodgifyListingInfo: ${error.message}`);
+            throw error;
+        }
     },
     fetchLodgifyListingQuoteBeta: async (keys: keysType, params?: any) => {
         const { listingId, quote } = params;
@@ -491,7 +526,7 @@ const routesLodgify = {
                 );
 
                 const data = await response.json();
-
+                //console.log(data)
                 if (response.status === 400) {
                     throw new Error(`Error ${response.status}: ${data.title || response.statusText}`);
                 }
@@ -659,9 +694,8 @@ const actions = {
 
     //////////////LODGIFY///////////////////////////////////////////
 
-    getLodgify_Listings: async (internal_ID: string) => {
+    getLodgify_Listings: async (internal_ID: string, params: ParamsLodgifySite) => {
         const keys = await getLodgifyKeys(internal_ID);
-
         const { ApiKey, AppKey } = keys.client;
 
         if (!ApiKey || !AppKey) {
@@ -670,28 +704,37 @@ const actions = {
         const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
 
         try {
-            const [listings, additionalData] = await Promise.all([
-                routesLodgify.fetchLodgifyListings(keysObject),
-                routesLodgify.fetchLodgifyListingsBETA(),
-
-            ]);
-
-            const coverted_listings = listings.items.filter((lst) => lst.is_active).map((listing: lodgify_listings) => new ListingConverter(listing).convert());
-            const cities = {
-                results: coverted_listings.map((i) => ({
-                    city: i.address.city,
-                    state: i.address.state,
-                    country: i.address.country
-                }))
-                    .filter((value, index, self) =>
-                        index === self.findIndex((t) =>
-                            t.city === value.city && t.state === value.state
-                        )
-                    )
-
+            // Conditionally include fetchLodgifyListingsBETA
+            const promises = [routesLodgify.fetchLodgifyListings(keysObject)];
+            if (params.id) {
+                promises.push(routesLodgify.fetchLodgifyListingsBETA(params));
             }
-            const listingExtraData = additionalData.data.items
-            return { coverted_listings, cities, listingExtraData }; // Return listings and cities only
+
+            const [listings, additionalData] = await Promise.all(promises);
+
+            // Convert listings
+            const coverted_listings = listings.items
+                .filter((lst) => lst.is_active)
+                .map((listing: lodgify_listings) => new ListingConverter(listing).convert());
+
+            const cities = {
+                results: coverted_listings
+                    .map((i) => ({
+                        city: i.address.city,
+                        state: i.address.state,
+                        country: i.address.country,
+                    }))
+                    .filter((value, index, self) =>
+                        index === self.findIndex((t) => t.city === value.city && t.state === value.state)
+                    ),
+            };
+
+            const listingExtraData = params.id !== "" ? additionalData?.data.items : null;
+
+            // console.log(cities);
+            // console.log(listingExtraData);
+
+            return { coverted_listings, cities, listingExtraData };
         } catch (error) {
             console.error("Error fetching listings or cities:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
@@ -764,8 +807,8 @@ const actions = {
         internal_ID: string,
         params: ParamsListingDetailsType
     ) => {
+        
         const keys = await getLodgifyKeys(internal_ID);
-
         const { ApiKey, AppKey } = keys.client;
 
         if (!ApiKey || !AppKey) {
@@ -779,6 +822,7 @@ const actions = {
                 routesLodgify.fetchLodgifyListingDetailsBETA(keysObject, params),
                 routesLodgify.fetchLodgifyListingAvailabilities(keysObject, params),
             ]);
+            
             const roomId = listingDetails?.rooms?.[0]?.id;
             const roomInfo = await routesLodgify.fetchLodgifyListingInfo(keysObject, params, roomId);
 
@@ -791,13 +835,18 @@ const actions = {
             //ROOM INFO API CALL
             const listingRoomInfo = new LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT(roomInfo as Room_info_in_a_property_by_id);
             const listing_roomInfo = listingRoomInfo.convert()
+            
 
             //PROPERTY DETAILS BETA (TEMP) API CALL ** gets addional data missing from other apis 
             const DetailsBETA = new LODGIFY_DETAILS_BETA_TO_LISTING_DETAILS_FORMAT(listingDetailsBETA as Lodgify_Listing_Details_BETA);
             const listing_details_beta = DetailsBETA.convert()
+            //console.log(listing_details_beta)
 
-            const singleListing = { ...singleListingObject, ...listing_roomInfo, ...listing_details_beta }
-
+            const singleListing = { ...singleListingObject, ...listing_roomInfo, ...listing_details_beta,publicDescription: {
+                ...listing_roomInfo.publicDescription, // Spread the existing fields from singleListing
+                ...listing_details_beta.publicDescription, // Spread the fields from availabilities
+            }, }
+           // console.log(listing_roomInfo)
             return { singleListing, availabilities };
 
         } catch (error) {
@@ -817,10 +866,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { action, internal_ID, params } = req.body;
         if (req.headers['x-vercel-warmup']) {
             return res.status(200).json({ message: 'Warm-up request ignored' });
-          }
- 
-    // Increment the request count (PROD ONLY)
-   // await incrementRequestCount(internal_ID);
+        }
+
+        // Increment the request count (PROD ONLY)
+        // await incrementRequestCount(internal_ID);
 
 
         if (action?.startsWith("getGuesty")) {

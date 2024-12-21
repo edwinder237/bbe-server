@@ -941,7 +941,7 @@ export type Listing_Quote_Client = {
   totalTaxes?: number;
   taxesItems?: {
     title: string;
-    amount: number;
+    amount: number | string;
     type: string;
     currency?: string;
   }[];
