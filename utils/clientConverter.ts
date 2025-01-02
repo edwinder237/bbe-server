@@ -405,6 +405,7 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
 
   // Method to convert input to Listing_Quote_Client format
   public convert(): Listing_Quote_Client {
+
     return {
       propertyId: this.input.propertyId.toString(),
       currency: this.input.currencyCode,
@@ -417,7 +418,7 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
       preTotal: this.input.totalPrice.totalExcSalesTaxes,
       nightlyTotal: this.input.rentalPrice.total,
       nightlyPrice: this.input.rentalPrice.nightlyPrice,
-      subTotal: (this.input?.totalPrice?.totalExcSalesTaxes ?? 0) - (this?.input?.localTaxes?.total ?? 0) || this.input?.totalPrice?.total || 0,
+      subTotal: (this.input.rentalPrice.total ?? 0) + (this.input.fees?.total ?? 0) || this.input?.totalPrice?.total || 0,
       stayTotal: this.input.totalPrice.total,
 
       // Promo Information
@@ -425,16 +426,28 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
       promoItems: this.convertPromos(this.input.rentalPrice.promotions),
 
       // Fees Information
-      totalFees: (this.input.fees?.total ?? 0) ,
+      totalFees: (this.input.fees?.total ?? 0),
       feesItems: this.convertInvoiceItems(this.input.fees.details, this.input.currencyCode, "fee"),
 
       // Taxes Information
-      totalTaxes: (this.input.totalPrice.salesTaxes) + (this.input.localTaxes?.total ?? 0),
-      taxesItems: this.getSalesTaxes(this.input.totalPrice.salesTaxes, this.input.currencyCode,this.input.localTaxes.details),
+      totalTaxes: this.calculateTotalTaxes({ totalPrice: this.input.totalPrice, localTaxes: this.input.localTaxes }),
+      taxesItems: this.getSalesTaxes(this.input.totalPrice.salesTaxes, this.input.currencyCode, this.input.localTaxes.details),
 
       // Taxes Information
       otherItems: this.convertPaymentsItems(this.input.scheduledPayments.payments, this.input.currencyCode, "deposit"),
     };
+  }
+
+  private calculateTotalTaxes(input) {
+    const { totalPrice, localTaxes } = input;
+
+    // Ensure defaults for safety
+    const localTaxesTotal = localTaxes?.total || 0;
+    const salesTaxes = totalPrice?.salesTaxes || 0;
+
+    return totalPrice?.includesTaxes
+      ? localTaxesTotal // Only local taxes if taxes are included
+      : localTaxesTotal + salesTaxes; // Add sales taxes if not included
   }
 
   private getSalesTaxes(
@@ -445,13 +458,13 @@ export class LODGIFY_QUOTE_TO_CLIENT_LISTING_QUOTE {
     return [
       ...(taxAmount > 0
         ? [
-            {
-              title: "Sales Tax",
-              amount: taxAmount,
-              type: "tax",
-              currency,
-            },
-          ]
+          {
+            title: "Sales Tax",
+            amount: taxAmount,
+            type: "tax",
+            currency,
+          },
+        ]
         : []),
       ...taxes.map((tax) => ({
         title: tax.name,

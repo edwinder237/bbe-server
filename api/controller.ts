@@ -35,12 +35,35 @@ import {
 
 
 
+interface LocationType {
+    city?: string;
+    state?: string;
+    country?: string;
+}
+
+interface ListingFiltersType {
+    location?: LocationType;
+    guestsCount?: number
+    dateRange?: {
+        checkInDateLocalized?: string;
+        checkOutDateLocalized?: string;
+    }
+}
+
+interface ListingsReturnType {
+    total: number;
+    items: any[];
+    error?: string;
+    message?: string
+}
+
+
 
 
 interface ParamsListingDetailsType {
-    default_Lang?:string;
-    roomId?:string;
-    websiteId?:string
+    default_Lang?: string;
+    roomId?: string;
+    websiteId?: string
     listingId: string;
     quote?: {
         guestsCount?: number; // Required
@@ -98,19 +121,17 @@ interface ParamsPaymentProviderType {
     listingId: string;
 }
 
+
+
 interface ParamsDatesSearchType {
     listingId: string;
     search: {
         guestsCount?: number
         checkInDateLocalized: string;
         checkOutDateLocalized: string;
-        location: {
-            city?: string | "";
-            state?: string | "";
-            country?: string | "";
-        }
-
+        location: LocationType
     };
+    lodgifySite:ParamsLodgifySite
 }
 
 interface ParamsLodgifySite {
@@ -119,9 +140,9 @@ interface ParamsLodgifySite {
 }
 
 interface ParamsAvailabilitiesType {
-    default_Lang?:string;
-    roomId?:string;
-    websiteId?:string
+    default_Lang?: string;
+    roomId?: string;
+    websiteId?: string
     listingId: string; // Required
     availabilities: {
         // Required
@@ -250,7 +271,7 @@ const routes = {
         const city = location.city;
         const state = location?.state;
         const country = location?.country;
-
+        
         const baseUrl: string = "https://booking.guesty.com/api/listings";
         const url_params: string[] = [];
 
@@ -258,7 +279,7 @@ const routes = {
         url_params.push(`minOccupancy=${guestsCount}`)
         url_params.push(`numberOfBedrooms=0`);
         url_params.push(`numberOfBathrooms=0`);
-
+       
         // Add optional parameters
         if (city) url_params.push(`city=${encodeURIComponent(city)}`);
         if (country) url_params.push(`country=${encodeURIComponent(country)}`);
@@ -272,16 +293,16 @@ const routes = {
         // Construct the full URL
         const url: string = `${baseUrl}?${url_params.join("&")}`;
 
-        console.log(`Fetching listings dates with URL: ${url}`);
+        //console.log(`Fetching listings dates with URL: ${url}`);
 
         // Fetch data using the constructed URL
         const searchResult = await fetchGuestyData(url, token, "fetchGuestyListingsDates");
+        
+       
+        const coverted_listings = searchResult.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
+        const results:ListingsReturnType = {total:coverted_listings.length, items: coverted_listings}
 
-        const listings = await searchResult;
-        const coverted_listings = listings.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
-
-
-        return { filteredListings: coverted_listings };
+        return { filteredListings: results };
     },
     fetchGuestyCities: async (token: string) =>
         fetchGuestyData(
@@ -321,7 +342,7 @@ const routes = {
 
         //handle request made on invalid dates   
         const response = await handleFetch(url, options, "fetchGuestyListingQuote");
-        console.log(response)
+       // console.log(response)
         if (response === "LISTING_IS_NOT_AVAILABLE") {
             return {
                 code: "LISTING_IS_NOT_AVAILABLE",
@@ -430,6 +451,7 @@ const routesLodgify = {
         ),
     fetchLodgifyListingsBETA: async (params) => {
         const { id, url } = params
+
         const options = {
             method: "POST",
             headers: {
@@ -458,7 +480,6 @@ const routesLodgify = {
             // Add an empty body if needed
             body: JSON.stringify({}),
         };
-
         try {
             const response = await fetch(`https://api.lodgify.com/v2/search/${id}`, options);
 
@@ -526,7 +547,7 @@ const routesLodgify = {
                 );
 
                 const data = await response.json();
-                //console.log(data)
+
                 if (response.status === 400) {
                     throw new Error(`Error ${response.status}: ${data.title || response.statusText}`);
                 }
@@ -694,19 +715,50 @@ const actions = {
 
     //////////////LODGIFY///////////////////////////////////////////
 
-    getLodgify_Listings: async (internal_ID: string, params: ParamsLodgifySite) => {
-        const keys = await getLodgifyKeys(internal_ID);
-        const { ApiKey, AppKey } = keys.client;
+    getLodgify_Listings: async (internal_ID: string, params: ParamsLodgifySite, auth?: keysType) => {
+        /**
+  * NOTE: This function conditionally fetches API keys either from the `auth` parameter 
+  * (if provided) or by calling `getLodgifyKeys` using `internal_ID`.
+  * 
+  * Why is this important?
+  * - To ensure flexibility in key handling: external callers can pass custom keys via `auth`,
+  *   avoiding redundant API calls.
+  * - To optimize performance: `getLodgifyKeys` is only called when `auth` is not provided, 
+  *   reducing unnecessary network requests.
+  * - To ensure robust error handling: The function validates the presence of required keys 
+  *   and throws meaningful errors when they're missing.
+  */
+        let apiKey: string;
+        let appKey: string;
 
-        if (!ApiKey || !AppKey) {
+        if (auth) {
+            // If `auth` is provided, extract keys directly from it
+            apiKey = auth.apiKey;
+            appKey = auth.appKey;
+        } else {
+            // If `auth` is not provided, fetch keys from Lodgify using `internal_ID`
+            const keys = await getLodgifyKeys(internal_ID);
+
+            // Extract `ApiKey` and `AppKey` from the fetched keys
+            apiKey = keys.client.ApiKey;
+            appKey = keys.client.AppKey;
+        }
+
+        // Validate that both `apiKey` and `appKey` are available
+        // If either is missing, throw an error
+        if (!apiKey || !appKey) {
             throw new Error("Missing Lodgify API keys");
         }
-        const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
+
+        // Create the keys object
+        const keysObject: keysType = { apiKey, appKey };
 
         try {
             // Conditionally include fetchLodgifyListingsBETA
             const promises = [routesLodgify.fetchLodgifyListings(keysObject)];
             if (params.id) {
+                const data = await routesLodgify.fetchLodgifyListingsBETA(params)
+                // console.log(data.data.items)
                 promises.push(routesLodgify.fetchLodgifyListingsBETA(params));
             }
 
@@ -742,6 +794,32 @@ const actions = {
     },
 
     getLodgify_Listings_search: async (internal_ID: string, params: ParamsDatesSearchType) => {
+        // @fileoverview Lodgify API Listing Filters Implementation
+
+        // Implements filtering capabilities for vacation rental listings using the Lodgify API.
+        //Filters can be applied independently or combined: location, dates, and guest count.
+        // Note: Lodgify API doesn't support direct query filtering - all filtering is done post-fetch.
+
+        // Example Usage:
+
+        // All listings
+        // const allListings = await getListings({});
+
+        // Location only
+        // const cityListings = await getListings({ location:{city: "New York”} });
+
+        // Combined filters
+        // const filteredListings = await getListings({
+        //   location:{city: "New York"},
+        //   guestsCount: 5,
+        //   dateRange: {
+        //     checkInDateLocalized: new Date("2024-01-03"),
+        //     checkOutDateLocalized: new Date("2024-01-19")
+        //   }
+        // });
+
+
+
         const keys = await getLodgifyKeys(internal_ID);
         const { ApiKey, AppKey } = keys.client;
 
@@ -750,53 +828,146 @@ const actions = {
         }
         const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
 
+
+
+        const { search,lodgifySite } = params;
+        const validDates = !!search.checkInDateLocalized && !!search.checkOutDateLocalized;
+
+        // 
+
         try {
-            // Check for invalid dates and decide which function to call
-            const fetchListingsDates =
-                !params?.search?.checkInDateLocalized || !params?.search?.checkOutDateLocalized
-                    ? routesLodgify.fetchLodgifyListings(keysObject)
-                    : routesLodgify.fetchLodgifyListingsDates(keysObject, params);
 
-            // Use Promise.all to fetch both listings and availability
-            const [AvailableListings, listings] = await Promise.all([
-                fetchListingsDates,
-                routesLodgify.fetchLodgifyListings(keysObject),
-            ]);
+            const getSearchResults = async (auth): Promise<ListingsReturnType> => {
+                // Parallelize data fetching where possible
+                const [allListings, availabilities] = await Promise.all([
+                    actions.getLodgify_Listings(internal_ID, { id: lodgifySite?.id, url: lodgifySite?.url}, auth),
+                    validDates
+                        ? routesLodgify.fetchLodgifyListingsDates(auth, params)
+                        : Promise.resolve([]) // No availabilities needed if dates are invalid
+                ]);
 
-            const { checkInDateLocalized, checkOutDateLocalized } = params?.search || {};
-            const START = dayjs(checkInDateLocalized).format('YYYY-MM-DD');
-            const END = dayjs(checkOutDateLocalized).format('YYYY-MM-DD');
-
-            let filteredListings;
-
-            if (params?.search?.checkInDateLocalized || params?.search?.checkOutDateLocalized) {
-                // Step 1: Filter AvailableListings directly for properties bookable within selected dates
-                const availableIds = new Set(
-                    AvailableListings
-                        .filter(
-                            listing =>
-                                listing.is_available &&
-                                listing.period_start === START &&
-                                listing.period_end === END
-                        )
-                        .map(listing => listing.property_id)
+                // Build a Map for quick lookup of `listingExtraData`
+                const extraDataMap = new Map(
+                    allListings.listingExtraData.map((info: any) => [info.property_id.toString(), info])
                 );
 
-                // Step 2: Convert listings to FRONTEND format
-                filteredListings = listings.items.reduce((acc, lst) => {
-                    if (lst.is_active && availableIds.has(lst.id)) {
-                        acc.push(new ListingConverter(lst).convert());
-                    }
-                    return acc;
-                }, []);
-            } else {
-                // Convert and return all active listings
-                filteredListings = listings.items
-                    .filter(lst => lst.is_active)
-                    .map(listing => new ListingConverter(listing).convert());
-            }
+                // Append additional info to listings using the Map
+                const appendedListings = allListings.coverted_listings.map((listing: any) => ({
+                    ...listing,
+                    moreinfo: extraDataMap.get(listing.id) || null
+                }));
 
-            return { filteredListings };
+                // Initialize listings object
+                const listings = {
+                    count: appendedListings.length,
+                    items: appendedListings
+                };
+
+                // Early exits for invalid or empty listings
+                if (!listings.items?.length) {
+                    return {
+                        total: 0,
+                        items: [],
+                        error: listings.items ? 'No listings found' : 'Invalid listings format: missing items array'
+                    };
+                }
+
+                // Initialize filters
+                let filteredListings = listings.items;
+                const appliedFilters: string[] = [];
+
+                // Location Filter
+                if (search.location?.city) {
+                    const city = search.location.city;
+
+                    filteredListings = filteredListings.filter(
+                        (listing: any) =>
+                            listing.address.city === city || listing.moreinfo?.city_name === city
+                    );
+                    appliedFilters.push(`location: ${city}`);
+                }
+
+                // Date Filter
+                if (validDates) {
+                    const { checkInDateLocalized, checkOutDateLocalized } = params?.search || {};
+                    const checkInDate = new Date(checkInDateLocalized);
+                    const checkOutDate = new Date(checkOutDateLocalized);
+
+                    if (checkInDate < checkOutDate) {
+                        const START = dayjs(checkInDateLocalized).format('YYYY-MM-DD');
+                        const END = dayjs(checkOutDateLocalized).format('YYYY-MM-DD');
+
+                        // Create a Set of available property IDs
+                        const availableIds = new Set(
+                            availabilities
+                                .filter(
+                                    listing =>
+                                        listing.is_available &&
+                                        listing.period_start === START &&
+                                        listing.period_end === END
+                                )
+                                .map(listing => listing.property_id)
+                        );
+                        
+                        // Filter listings by availability
+                        filteredListings = filteredListings.filter(
+                            (listing: any) =>
+                                availableIds.has(Number(listing.id)) || availableIds.has(Number(listing.moreinfo?.id))
+                        );
+                        
+                        appliedFilters.push(`date range: ${START} to ${END}`);
+                        
+                        // If no listings are available for the selected date range, return an error
+                        if (filteredListings.length === 0) {
+                            return {
+                                total: 0,
+                                items: [],
+                                error: `No listings available for the selected date range: ${START} to ${END}.`
+                            };
+                        }
+                    } else {
+                        return {
+                            total: 0,
+                            items: [],
+                            error: 'Invalid date range: Check-in date must be earlier than check-out date.'
+                        };
+                    }
+                }
+                
+                // Guest Count Filter
+                if (search.guestsCount && search.guestsCount > 0) {
+                    const requestedGuests = search.guestsCount;
+                    
+                    filteredListings = filteredListings.filter(
+                        (listing: any) => listing.moreinfo?.max_people >= requestedGuests
+                    );
+                    
+                    appliedFilters.push(`guest count: ${requestedGuests}`);
+                }
+
+                // Final Check: Return results or error if no listings match
+                if (filteredListings.length === 0) {
+                    return {
+                        total: 0,
+                        items: [],
+                        error: 'No results found for the applied filters'
+                    };
+                }
+
+                // Construct the dynamic message
+                const message = `Listings returned based on combined search criteria (${appliedFilters.join(', ')})`;
+                
+                return {
+                    total: filteredListings.length,
+                    items: filteredListings,
+                    message
+                };
+            };
+            const searchResult = await getSearchResults(keysObject)
+            //console.log("allListings", searchResult)
+
+
+            return { filteredListings: searchResult };
         } catch (error) {
             console.error("Error fetching Listings_search:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
@@ -807,7 +978,7 @@ const actions = {
         internal_ID: string,
         params: ParamsListingDetailsType
     ) => {
-        
+
         const keys = await getLodgifyKeys(internal_ID);
         const { ApiKey, AppKey } = keys.client;
 
@@ -822,7 +993,7 @@ const actions = {
                 routesLodgify.fetchLodgifyListingDetailsBETA(keysObject, params),
                 routesLodgify.fetchLodgifyListingAvailabilities(keysObject, params),
             ]);
-            
+
             const roomId = listingDetails?.rooms?.[0]?.id;
             const roomInfo = await routesLodgify.fetchLodgifyListingInfo(keysObject, params, roomId);
 
@@ -835,18 +1006,20 @@ const actions = {
             //ROOM INFO API CALL
             const listingRoomInfo = new LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT(roomInfo as Room_info_in_a_property_by_id);
             const listing_roomInfo = listingRoomInfo.convert()
-            
+
 
             //PROPERTY DETAILS BETA (TEMP) API CALL ** gets addional data missing from other apis 
             const DetailsBETA = new LODGIFY_DETAILS_BETA_TO_LISTING_DETAILS_FORMAT(listingDetailsBETA as Lodgify_Listing_Details_BETA);
             const listing_details_beta = DetailsBETA.convert()
             //console.log(listing_details_beta)
 
-            const singleListing = { ...singleListingObject, ...listing_roomInfo, ...listing_details_beta,publicDescription: {
-                ...listing_roomInfo.publicDescription, // Spread the existing fields from singleListing
-                ...listing_details_beta.publicDescription, // Spread the fields from availabilities
-            }, }
-           // console.log(listing_roomInfo)
+            const singleListing = {
+                ...singleListingObject, ...listing_roomInfo, ...listing_details_beta, publicDescription: {
+                    ...listing_roomInfo.publicDescription, // Spread the existing fields from singleListing
+                    ...listing_details_beta.publicDescription, // Spread the fields from availabilities
+                },
+            }
+            // console.log(listing_roomInfo)
             return { singleListing, availabilities };
 
         } catch (error) {
@@ -869,7 +1042,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Increment the request count (PROD ONLY)
-        // await incrementRequestCount(internal_ID);
+         await incrementRequestCount(internal_ID);
 
 
         if (action?.startsWith("getGuesty")) {
