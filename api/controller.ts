@@ -225,6 +225,7 @@ const fetchLodgifyData = async (
         if (!response.success) {
             throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
         }
+
         return response.data;
     } catch (error) {
         console.error(`Error in fetchLodgifyData: ${error.message}`);
@@ -450,17 +451,12 @@ const routesLodgify = {
                     keys,
                     "fetchLodgifyListings"
                 );
-        
-                // Validate content type
-                const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    const text = await response.text(); // Fetch plain-text response for debugging
-                    console.error("Non-JSON Response:", text);
-                    throw new Error(`Unexpected response format: ${text}`);
-                }
-        
+                
+
+                console.log("Troubleshooting",response)
                 // Parse and return JSON response
-                const data = await response.json();
+                const data = await response;
+                
                 return data;
             } catch (error) {
                 console.error("Error in fetchLodgifyListings:", error.message);
