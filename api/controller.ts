@@ -443,12 +443,30 @@ const routesLodgify = {
             keys,
             "fetchLodgifyListings"
         ),
-    fetchLodgifyListings: async (keys: keysType, params?: any) =>
-        fetchLodgifyData(
-            `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=1&size=${50}`,
-            keys,
-            "fetchLodgifyListings"
-        ),
+        fetchLodgifyListings: async (keys: keysType, params?: any) => {
+            try {
+                const response = await fetchLodgifyData(
+                    `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=1&size=${50}`,
+                    keys,
+                    "fetchLodgifyListings"
+                );
+        
+                // Validate content type
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    const text = await response.text(); // Fetch plain-text response for debugging
+                    console.error("Non-JSON Response:", text);
+                    throw new Error(`Unexpected response format: ${text}`);
+                }
+        
+                // Parse and return JSON response
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error("Error in fetchLodgifyListings:", error.message);
+                throw new Error(`Fetching Lodgify listings failed: ${error.message}`);
+            }
+        },
     fetchLodgifyListingsBETA: async (params) => {
         const { id, url } = params
 
@@ -1042,7 +1060,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Increment the request count (PROD ONLY)
-         await incrementRequestCount(internal_ID);
+         //await incrementRequestCount(internal_ID);
 
 
         if (action?.startsWith("getGuesty")) {
