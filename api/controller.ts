@@ -131,7 +131,7 @@ interface ParamsDatesSearchType {
         checkOutDateLocalized: string;
         location: LocationType
     };
-    lodgifySite:ParamsLodgifySite
+    lodgifySite: ParamsLodgifySite
 }
 
 interface ParamsLodgifySite {
@@ -217,7 +217,6 @@ const fetchLodgifyData = async (
     const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
     );
-
     try {
         const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
         const response = await Promise.race([fetchPromise, timeout]);
@@ -272,7 +271,7 @@ const routes = {
         const city = location.city;
         const state = location?.state;
         const country = location?.country;
-        
+
         const baseUrl: string = "https://booking.guesty.com/api/listings";
         const url_params: string[] = [];
 
@@ -280,7 +279,7 @@ const routes = {
         url_params.push(`minOccupancy=${guestsCount}`)
         url_params.push(`numberOfBedrooms=0`);
         url_params.push(`numberOfBathrooms=0`);
-       
+
         // Add optional parameters
         if (city) url_params.push(`city=${encodeURIComponent(city)}`);
         if (country) url_params.push(`country=${encodeURIComponent(country)}`);
@@ -298,10 +297,10 @@ const routes = {
 
         // Fetch data using the constructed URL
         const searchResult = await fetchGuestyData(url, token, "fetchGuestyListingsDates");
-        
-       
+
+
         const coverted_listings = searchResult.results.map((listing: guesty_listings) => new GuestyConverter(listing).convert());
-        const results:ListingsReturnType = {total:coverted_listings.length, items: coverted_listings}
+        const results: ListingsReturnType = { total: coverted_listings.length, items: coverted_listings }
 
         return { filteredListings: results };
     },
@@ -343,7 +342,7 @@ const routes = {
 
         //handle request made on invalid dates   
         const response = await handleFetch(url, options, "fetchGuestyListingQuote");
-       // console.log(response)
+        // console.log(response)
         if (response === "LISTING_IS_NOT_AVAILABLE") {
             return {
                 code: "LISTING_IS_NOT_AVAILABLE",
@@ -444,25 +443,24 @@ const routesLodgify = {
             keys,
             "fetchLodgifyListings"
         ),
-        fetchLodgifyListings: async (keys: keysType, params?: any) => {
-            try {
-                const response = await fetchLodgifyData(
-                    `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=1&size=${50}`,
-                    keys,
-                    "fetchLodgifyListings"
-                );
-                
+    fetchLodgifyListings: async (keys: keysType, params?: any) => {
+        try {
+            const response = await fetchLodgifyData(
+                `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=1&size=${50}`,
+                keys,
+                "fetchLodgifyListings"
+            );
 
-                console.log("Troubleshooting",response)
-                // Parse and return JSON response
-                const data = await response;
-                
-                return data;
-            } catch (error) {
-                console.error("Error in fetchLodgifyListings:", error.message);
-                throw new Error(`Fetching Lodgify listings failed: ${error.message}`);
-            }
-        },
+
+            // console.log("Troubleshooting",response.items[0].in_out)
+            const data = await response;
+
+            return data;
+        } catch (error) {
+            console.error("Error in fetchLodgifyListings:", error.message);
+            throw new Error(`Fetching Lodgify listings failed: ${error.message}`);
+        }
+    },
     fetchLodgifyListingsBETA: async (params) => {
         const { id, url } = params
 
@@ -581,9 +579,11 @@ const routesLodgify = {
     },
     fetchLodgifyListingAvailabilities: async (keys: keysType, params?: any) => {
         const { listingId, availabilities } = params;
+        
         const { fromDate, toDate } = availabilities;
         const fromDateISO = dayjs(fromDate).toISOString();
         const toDateISO = dayjs(toDate).toISOString();
+        
         return fetchLodgifyData(
             `https://api.lodgify.com/v1/availability/${listingId}?periodStart=${fromDateISO}&periodEnd=${toDateISO}`,
             keys,
@@ -844,7 +844,7 @@ const actions = {
 
 
 
-        const { search,lodgifySite } = params;
+        const { search, lodgifySite } = params;
         const validDates = !!search.checkInDateLocalized && !!search.checkOutDateLocalized;
 
         // 
@@ -854,7 +854,7 @@ const actions = {
             const getSearchResults = async (auth): Promise<ListingsReturnType> => {
                 // Parallelize data fetching where possible
                 const [allListings, availabilities] = await Promise.all([
-                    actions.getLodgify_Listings(internal_ID, { id: lodgifySite?.id, url: lodgifySite?.url}, auth),
+                    actions.getLodgify_Listings(internal_ID, { id: lodgifySite?.id, url: lodgifySite?.url }, auth),
                     validDates
                         ? routesLodgify.fetchLodgifyListingsDates(auth, params)
                         : Promise.resolve([]) // No availabilities needed if dates are invalid
@@ -922,15 +922,15 @@ const actions = {
                                 )
                                 .map(listing => listing.property_id)
                         );
-                        
+
                         // Filter listings by availability
                         filteredListings = filteredListings.filter(
                             (listing: any) =>
                                 availableIds.has(Number(listing.id)) || availableIds.has(Number(listing.moreinfo?.id))
                         );
-                        
+
                         appliedFilters.push(`date range: ${START} to ${END}`);
-                        
+
                         // If no listings are available for the selected date range, return an error
                         if (filteredListings.length === 0) {
                             return {
@@ -947,15 +947,15 @@ const actions = {
                         };
                     }
                 }
-                
+
                 // Guest Count Filter
                 if (search.guestsCount && search.guestsCount > 0) {
                     const requestedGuests = search.guestsCount;
-                    
+
                     filteredListings = filteredListings.filter(
                         (listing: any) => listing.moreinfo?.max_people >= requestedGuests
                     );
-                    
+
                     appliedFilters.push(`guest count: ${requestedGuests}`);
                 }
 
@@ -970,7 +970,7 @@ const actions = {
 
                 // Construct the dynamic message
                 const message = `Listings returned based on combined search criteria (${appliedFilters.join(', ')})`;
-                
+
                 return {
                     total: filteredListings.length,
                     items: filteredListings,
@@ -1056,7 +1056,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Increment the request count (PROD ONLY)
-         //await incrementRequestCount(internal_ID);
+        //await incrementRequestCount(internal_ID);
 
 
         if (action?.startsWith("getGuesty")) {

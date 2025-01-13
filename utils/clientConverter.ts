@@ -56,8 +56,21 @@ export class ListingConverter {
       bathrooms: 0,
       saleOff: "", // Assuming no sale info, adjust if available
       isAds: false, // Assuming no ad flag, adjust if available
+      dates:{
+        unavailableDatesISO: this.convertDatesToISO8601(this.input.in_out.not_available),
+        unavailableDates: this.input.in_out.not_available 
+
+      } 
     };
   }
+
+  // helper method to convert dates to iso format 
+  private convertDatesToISO8601(notAvailable: { date: string; for: string }[]): string[] {
+    
+    const isoNotAvailable = notAvailable.map((item) => `${item.date}T00:00:00.000Z`);
+    return isoNotAvailable
+  }
+
 
   // Helper method to convert ID to string
   private IdToString(): string {

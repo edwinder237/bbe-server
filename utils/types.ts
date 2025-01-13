@@ -32,7 +32,21 @@ export type lodgify_listings = {
   has_agreement: boolean;
   agreement_text: any,
   agreement_url: any,
-  in_out: any,
+  in_out: {
+    check_in:{
+      date:string,
+      for:string
+    }[],
+    check_out:{
+      date:string,
+      for:string
+    }[],
+    not_available:{
+      date:string,
+      for:string
+    }[],
+  },
+  
   created_at: string;
   updated_at: string;
 };
@@ -682,6 +696,10 @@ export type listings_search_client = {
   id: string;
   authorId: number;
   date: string;
+  dates?: {
+    unavailableDatesISO: string[]; // format: ["2025-01-04T05:00:00.000Z"]
+    unavailableDates: {}[]; // format : ["2025-01-04"]
+  }
   href: string;
   title: string;
   nickname: string;
