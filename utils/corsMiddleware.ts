@@ -7,7 +7,7 @@ export const corsMiddleware = (req: VercelRequest, res: VercelResponse) => {
   // Check if the request's origin is allowed
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS,DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   } else {
     // Optionally handle the case where the origin is not allowed

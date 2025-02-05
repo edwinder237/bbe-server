@@ -272,7 +272,7 @@ export class LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT {
   public convert(): listing_detail_client {
     return {
       galleryImgs: this.convertIMGs(this.input.images),
-      amenities: this.getAmenities(this.input.amenities),
+      amenities: this.getAmenities(this.input.amenities,this.input.id),
       publicDescription: {
         summary: this.input.description ?? "",
       },
@@ -287,22 +287,126 @@ export class LODGIFY_ROOM_INFO_TO_LISTING_DETAILS_FORMAT {
     }));
   }
 
-  // Method to aggregate amenities into a single array of strings
-  private getAmenities(amenitiesArray: Record<string, { text: string }[] | unknown[]>): string[] {
+  private getAmenities(amenitiesArray: Record<string, { text: string }[] | unknown[]>, propertyId: number): string[] {
     const allAmenities: string[] = [];
-
-    // Filter and process only entries that match the `{ text: string }[]` structure
+  
+    // If it's NOT the property that needs special French grammar handling,
+    // we skip all the parsing logic and just push amenity.text as-is
+    const needsFrenchGrammarFix = propertyId === 560514;
+  
+    // Loop through each "category" in amenitiesArray
     Object.values(amenitiesArray).forEach((category) => {
-      if (Array.isArray(category) && category.every(item => item && typeof item === 'object' && 'text' in item)) {
-        (category as { text: string }[]).forEach((amenity) => {
-          if (amenity.text) {
-            allAmenities.push(amenity.text);
-          }
-        });
-      }
+      // Only process categories that look like { text: string }[]
+      if (!Array.isArray(category)) return;
+      if (!category.every(item => item && typeof item === 'object' && 'text' in item)) return;
+  
+      // Process each amenity in this category
+      (category as { text: string }[]).forEach((amenity) => {
+        const text = amenity.text?.trim();
+        if (!text) {
+          // Skip empty or undefined texts
+          return;
+        }
+  
+        // If we do NOT need French grammar fixes for this property, just push the raw text
+        if (!needsFrenchGrammarFix) {
+          allAmenities.push(text);
+          return;
+        }
+  
+        // Otherwise, transform the text for French grammar
+        allAmenities.push(this.transformAmenityText(text));
+      });
     });
-
+  
     return allAmenities;
+  }
+  
+  /**
+   * Transform amenity text according to the special French grammar rules,
+   * preserving any leading number if present.
+   */
+  private transformAmenityText(originalText: string): string {
+    // 1) Check if the text starts with a number, e.g. "2 Salle de bain"
+    const match = originalText.match(/^(\d+)/);
+    const count = match ? parseInt(match[1], 10) : null;
+  
+    // 2) Trim off the leading number for matching the actual words
+    //    e.g. "2 Salle de bain" -> "Salle de bain"
+    const textWithoutNumber = count !== null
+      ? originalText.slice(match![0].length).trim()
+      : originalText;
+  
+    // 3) Decide how to transform based on known rules.
+    //    We can do this either via a series of if/else or switch(true).
+    //    For readability, here’s a set of if/else checks:
+  
+    // --- "Salle de bain" ---
+    if (textWithoutNumber.includes("Salle de bain")) {
+      return this.buildAmenityString(count, "Salle de bain", "Salles de bains");
+    }
+  
+    // --- "Chambre" ---
+    if (textWithoutNumber.includes("Chambre")) {
+      return this.buildAmenityString(count, "Chambre", "Chambres");
+    }
+  
+    // --- "Salle à manger" ---
+    if (textWithoutNumber.includes("Salle à manger")) {
+      return this.buildAmenityString(count, "Salle à manger", "Salles à manger");
+    }
+  
+    // --- "Salle de séjour" ---
+    if (textWithoutNumber.includes("Salle de séjour")) {
+      return this.buildAmenityString(count, "Salle de séjour", "Salles de séjour");
+    }
+  
+    // --- "Lit extra-large" => "Lit King" ---
+    if (textWithoutNumber.includes("Lit extra-large")) {
+      return this.buildAmenityString(count, "Lit King", "Lits King");
+    }
+  
+    // --- "Lit grand deux places" => "Lit Queen" ---
+    if (textWithoutNumber.includes("Lit grand deux places")) {
+      return this.buildAmenityString(count, "Lit Queen", "Lits Queen");
+    }
+  
+    // --- "Haut débit Internet" => "Internet Haute Vitesse" ---
+    if (textWithoutNumber.includes("Haut débit Internet")) {
+      return this.buildAmenityString(count, "Internet Haute Vitesse", "Internet Haute Vitesse");
+    }
+  
+    // --- "Wi-fi haut débit Internet" => "Wi-Fi" ---
+    if (textWithoutNumber.includes("Wi-fi haut débit Internet")) {
+      return this.buildAmenityString(count, "Wi-Fi", "Wi-Fi");
+    }
+  
+    // --- "Poêle à bois ou en faïence" => "Poêle à bois" ---
+    if (textWithoutNumber.includes("Poêle à bois ou en faïence")) {
+      return this.buildAmenityString(count, "Poêle à bois", "Poêles à bois");
+    }
+  
+    // If no special rules matched, return the original text
+    return originalText;
+  }
+  
+  /**
+   * Helper to build final amenity string given:
+   * - count (could be null if no leading number)
+   * - singular form
+   * - plural form
+   */
+  private buildAmenityString(count: number | null, singular: string, plural: string): string {
+    if (count === null) {
+      // No leading number => just return singular (or whatever you prefer)
+      return singular;
+    }
+  
+    // If there's a number, decide singular vs plural
+    if (count > 1) {
+      return `${count} ${plural}`;
+    }
+    return `${count} ${singular}`;
   }
 }
 

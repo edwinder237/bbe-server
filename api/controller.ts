@@ -579,7 +579,6 @@ const routesLodgify = {
     },
     fetchLodgifyListingAvailabilities: async (keys: keysType, params?: any) => {
         const { listingId, availabilities } = params;
-        
         const { fromDate, toDate } = availabilities;
         const fromDateISO = dayjs(fromDate).toISOString();
         const toDateISO = dayjs(toDate).toISOString();
