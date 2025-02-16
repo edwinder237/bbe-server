@@ -2,15 +2,27 @@ export const handleFetch = async (url: string, options: RequestInit, actionName:
     const startTime = Date.now(); // Capture the start time
 
     try {
+
+
         const response = await fetch(url, options);
+        // Check for 429 status first
+        if (response.status === 429) {
+            // Handle "Too Many Requests"
+            throw new Error("Too Many Requests (429). The rate limit has been exceeded.");
+        }
+        // Handle other non-OK statuses
+        else if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status} - ${response.statusText}`);
+        }
+
         const data = await response.json();
-        
+
         // Check for HTTP errors
         if (!response.ok) {
-            if(url === "https://booking.guesty.com/api/reservations/quotes"){
+            if (url === "https://booking.guesty.com/api/reservations/quotes") {
                 return data.error.code;
-            }else
-            throw new Error(`Error in action '${actionName}': ${response.status} ${response.statusText}`);
+            } else
+                throw new Error(`Error in action '${actionName}': ${response.status} ${response.statusText}`);
         }
 
 

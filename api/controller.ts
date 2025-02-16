@@ -33,7 +33,11 @@ import {
 
 } from "../utils/types";
 
-
+interface wix_paramsType {
+    wix_req: string;
+    siteURL?: string;
+    listingId?: number;
+}
 
 interface LocationType {
     city?: string;
@@ -211,7 +215,7 @@ const fetchLodgifyData = async (
         headers: {
             accept: "application/json",
             "X-ApiKey": apiKey || "", // Ensure these are strings
-            "X-App-Key": appKey || "", // Ensure these are strings
+            "x-appkey": appKey || "", // Ensure these are strings
         },
     };
     const timeout = new Promise<never>((_, reject) =>
@@ -220,7 +224,6 @@ const fetchLodgifyData = async (
     try {
         const fetchPromise = handleFetch(url, options, action) as Promise<FetchResponse>;
         const response = await Promise.race([fetchPromise, timeout]);
-
         if (!response.success) {
             throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
         }
@@ -451,10 +454,8 @@ const routesLodgify = {
                 "fetchLodgifyListings"
             );
 
-
             // console.log("Troubleshooting",response.items[0].in_out)
             const data = await response;
-
             return data;
         } catch (error) {
             console.error("Error in fetchLodgifyListings:", error.message);
@@ -582,7 +583,7 @@ const routesLodgify = {
         const { fromDate, toDate } = availabilities;
         const fromDateISO = dayjs(fromDate).toISOString();
         const toDateISO = dayjs(toDate).toISOString();
-        
+
         return fetchLodgifyData(
             `https://api.lodgify.com/v1/availability/${listingId}?periodStart=${fromDateISO}&periodEnd=${toDateISO}`,
             keys,
@@ -603,6 +604,60 @@ const routesLodgify = {
 
 
 };
+
+const routesWixCMS = {
+    // -------------------------------
+    // Private helper to fetch JSON
+    // -------------------------------
+    _doFetch: async (url: string) => {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+  
+        if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+        }
+  
+        return await response.json();
+      } catch (error: any) {
+        // Re-throw so the calling function can catch and log it
+        throw new Error(error?.message || "Unknown error");
+      }
+    },
+  
+    // -------------------------------
+    // 1) Fetch all Wix CMS listings
+    // -------------------------------
+    fetchWixCMSListings: async (internal_ID: string, wix_params: wix_paramsType) => {
+      try {
+        const baseURL = `${wix_params.siteURL}/_functions/wixCms`;
+        return await routesWixCMS._doFetch(baseURL);
+      } catch (error: any) {
+        console.error("Error fetching Wix CMS:", error.message);
+        throw new Error(`Fetching failed: ${error.message}`);
+      }
+    },
+  
+    // -------------------------------
+    // 2) Fetch single Wix CMS listing by ID
+    // -------------------------------
+    fetchWixCMSListingDetails: async (
+      internal_ID: string,
+      wix_params: wix_paramsType
+    ) => {
+      try {
+        const baseURL = `${wix_params.siteURL}/_functions/wixCmsById?clientId=${internal_ID}&id=${wix_params.listingId}`;
+        return await routesWixCMS._doFetch(baseURL);
+      } catch (error: any) {
+        console.error("Error fetching Wix CMS details:", error.message);
+        throw new Error(`Fetching failed: ${error.message}`);
+      }
+    },
+  };
 
 // Utility actions for handling API data and fetchToken
 const actions = {
@@ -728,85 +783,115 @@ const actions = {
 
     //////////////LODGIFY///////////////////////////////////////////
 
-    getLodgify_Listings: async (internal_ID: string, params: ParamsLodgifySite, auth?: keysType) => {
+    getLodgify_Listings: async (
+        internal_ID: string,
+        params: ParamsLodgifySite,
+        wix_params: wix_paramsType,
+        auth?: keysType
+      ) => {
         /**
-  * NOTE: This function conditionally fetches API keys either from the `auth` parameter 
-  * (if provided) or by calling `getLodgifyKeys` using `internal_ID`.
-  * 
-  * Why is this important?
-  * - To ensure flexibility in key handling: external callers can pass custom keys via `auth`,
-  *   avoiding redundant API calls.
-  * - To optimize performance: `getLodgifyKeys` is only called when `auth` is not provided, 
-  *   reducing unnecessary network requests.
-  * - To ensure robust error handling: The function validates the presence of required keys 
-  *   and throws meaningful errors when they're missing.
-  */
+         * NOTE: This function conditionally fetches API keys either from the `auth` parameter 
+         * (if provided) or by calling `getLodgifyKeys` using `internal_ID`.
+         */
         let apiKey: string;
         let appKey: string;
-
+      
         if (auth) {
-            // If `auth` is provided, extract keys directly from it
-            apiKey = auth.apiKey;
-            appKey = auth.appKey;
+          // If `auth` is provided, extract keys directly from it
+          apiKey = auth.apiKey;
+          appKey = auth.appKey;
         } else {
-            // If `auth` is not provided, fetch keys from Lodgify using `internal_ID`
-            const keys = await getLodgifyKeys(internal_ID);
-
-            // Extract `ApiKey` and `AppKey` from the fetched keys
-            apiKey = keys.client.ApiKey;
-            appKey = keys.client.AppKey;
+          // If `auth` is not provided, fetch keys from Lodgify using `internal_ID`
+          const keys = await getLodgifyKeys(internal_ID);
+          // Extract `ApiKey` and `AppKey` from the fetched keys
+          apiKey = keys.client.ApiKey;
+          appKey = keys.client.AppKey;
         }
-
+      
         // Validate that both `apiKey` and `appKey` are available
-        // If either is missing, throw an error
         if (!apiKey || !appKey) {
-            throw new Error("Missing Lodgify API keys");
+          throw new Error("Missing Lodgify API keys");
         }
-
+      
         // Create the keys object
         const keysObject: keysType = { apiKey, appKey };
-
+      
         try {
-            // Conditionally include fetchLodgifyListingsBETA
-            const promises = [routesLodgify.fetchLodgifyListings(keysObject)];
-            if (params.id) {
-                const data = await routesLodgify.fetchLodgifyListingsBETA(params)
-                // console.log(data.data.items)
-                promises.push(routesLodgify.fetchLodgifyListingsBETA(params));
+          // Decide if WixCMS is requested
+          const isWixCMSRequested = wix_params?.wix_req;
+      
+          // 1) Always fetch Lodgify listings
+          // 2) Conditionally fetch Lodgify BETA listings (or fallback with null)
+          // 3) Conditionally fetch WixCMS details (or fallback with { item: {} })
+          const promises = [
+            routesLodgify.fetchLodgifyListings(keysObject),
+            params.id
+              ? routesLodgify.fetchLodgifyListingsBETA(params)
+              : Promise.resolve(null), // fallback if params.id is not provided
+            isWixCMSRequested
+              ? routesWixCMS.fetchWixCMSListings(internal_ID, wix_params || { wix_req: "false" })
+              : Promise.resolve({ items: [] }) // Fallback changed to { items: [] } for safety
+          ];
+      
+          // Destructure the results in the same order:
+          const [listings, additionalData, wixCmsData] = await Promise.all(promises);
+      
+          // ---------------------------------------------------------
+          // 1) OPTIMIZED: Build a map for Wix CMS items to allow O(1) lookups
+          // ---------------------------------------------------------
+          let cmsMap = new Map();
+          if (isWixCMSRequested) {
+            for (const cmsItem of wixCmsData?.items || []) {
+              cmsMap.set(cmsItem.id, cmsItem);
             }
+          }
+      
+          // ---------------------------------------------------------
+          // 2) Merge Lodgify BETA listings with CMS items using the map
+          // ---------------------------------------------------------
+          const LodgifyAPI_With_WIX_CMS = !isWixCMSRequested
+            ? []
+            : (additionalData?.data?.items || []).map((listing) => {
+                const cmsItem = cmsMap.get(listing.property_id);
+                return { ...listing, cmsItem };
+              });
+      
+          // ---------------------------------------------------------
+          // 3) Convert main Lodgify listings
+          // ---------------------------------------------------------
+          const coverted_listings = listings.items
+            .filter((lst: lodgify_listings) => lst.is_active)
+            .map((listing: lodgify_listings) => new ListingConverter(listing).convert());
+      
+          // ---------------------------------------------------------
+          // 4) OPTIMIZED: Gather unique city/state/country using a Set
+          // ---------------------------------------------------------
+          const uniqueCitySet = new Set();
+          const cityResults: { city: string; state: string; country: string; }[] = [];
+          for (const item of coverted_listings) {
+            const { city, state, country } = item.address;
+            const key = `${city}||${state}||${country}`;
+            if (!uniqueCitySet.has(key)) {
+              uniqueCitySet.add(key);
+              cityResults.push({ city, state, country });
+            }
+          }
+          const cities = { results: cityResults };
+      
+          // ---------------------------------------------------------
+          // 5) Decide if we attach BETA "listingExtraData"
+          // ---------------------------------------------------------
+          const listingExtraData = params.id ? additionalData?.data.items : null;
 
-            const [listings, additionalData] = await Promise.all(promises);
-
-            // Convert listings
-            const coverted_listings = listings.items
-                .filter((lst) => lst.is_active)
-                .map((listing: lodgify_listings) => new ListingConverter(listing).convert());
-
-            const cities = {
-                results: coverted_listings
-                    .map((i) => ({
-                        city: i.address.city,
-                        state: i.address.state,
-                        country: i.address.country,
-                    }))
-                    .filter((value, index, self) =>
-                        index === self.findIndex((t) => t.city === value.city && t.state === value.state)
-                    ),
-            };
-
-            const listingExtraData = params.id !== "" ? additionalData?.data.items : null;
-
-            // console.log(cities);
-            // console.log(listingExtraData);
-
-            return { coverted_listings, cities, listingExtraData };
+      
+          return { coverted_listings, cities, listingExtraData, LodgifyAPI_With_WIX_CMS };
         } catch (error) {
-            console.error("Error fetching listings or cities:", error.message);
-            throw new Error(`Fetching failed: ${error.message}`);
+          console.error("Error fetching listings or cities:", error.message);
+          throw new Error(`Fetching failed: ${error.message}`);
         }
-    },
+      },
 
-    getLodgify_Listings_search: async (internal_ID: string, params: ParamsDatesSearchType) => {
+    getLodgify_Listings_search: async (internal_ID: string, params: ParamsDatesSearchType,wix_params: wix_paramsType) => {
         // @fileoverview Lodgify API Listing Filters Implementation
 
         // Implements filtering capabilities for vacation rental listings using the Lodgify API.
@@ -831,8 +916,6 @@ const actions = {
         //   }
         // });
 
-
-
         const keys = await getLodgifyKeys(internal_ID);
         const { ApiKey, AppKey } = keys.client;
 
@@ -849,6 +932,8 @@ const actions = {
         // 
 
         try {
+                      // Decide if WixCMS is requested
+          const isWixCMSRequested = wix_params?.wix_req;
 
             const getSearchResults = async (auth): Promise<ListingsReturnType> => {
                 // Parallelize data fetching where possible
@@ -977,10 +1062,36 @@ const actions = {
                 };
             };
             const searchResult = await getSearchResults(keysObject)
-            //console.log("allListings", searchResult)
 
+            const wixCmsData = await (isWixCMSRequested
+            ? routesWixCMS.fetchWixCMSListings(internal_ID, wix_params || { wix_req: "false" })
+            : Promise.resolve({ items: [] }));
 
-            return { filteredListings: searchResult };
+                      // ---------------------------------------------------------
+          // 1) OPTIMIZED: Build a map for Wix CMS items to allow O(1) lookups
+          // ---------------------------------------------------------
+          let cmsMap = new Map();
+          if (isWixCMSRequested) {
+            for (const cmsItem of wixCmsData?.items || []) {
+              cmsMap.set(cmsItem.id, cmsItem);
+            }
+          }
+          // ---------------------------------------------------------
+          // 2) Merge Lodgify BETA listings with CMS items using the map
+          // ---------------------------------------------------------
+          const LodgifyAPI_With_WIX_CMS = !isWixCMSRequested
+            ? searchResult.items
+            : (searchResult?.items || []).map((listing) => {
+                const cmsItem = cmsMap.get(parseInt(listing.id));
+                return { ...listing, cmsItem };
+              });
+
+            const combineResults = {  
+                total: LodgifyAPI_With_WIX_CMS.length,
+                items: LodgifyAPI_With_WIX_CMS
+            }
+
+            return { filteredListings: combineResults };
         } catch (error) {
             console.error("Error fetching Listings_search:", error.message);
             throw new Error(`Fetching failed: ${error.message}`);
@@ -989,9 +1100,10 @@ const actions = {
 
     getLodgify_ListingDetails: async (
         internal_ID: string,
-        params: ParamsListingDetailsType
+        params: ParamsListingDetailsType,
+        wix_params?: wix_paramsType
     ) => {
-
+        const isWixCMSRequested = wix_params?.wix_req;
         const keys = await getLodgifyKeys(internal_ID);
         const { ApiKey, AppKey } = keys.client;
 
@@ -1009,6 +1121,11 @@ const actions = {
 
             const roomId = listingDetails?.rooms?.[0]?.id;
             const roomInfo = await routesLodgify.fetchLodgifyListingInfo(keysObject, params, roomId);
+
+            //FETCH extra data from WIX CMS
+            const wixCMSListingDetails = isWixCMSRequested
+                ? (await routesWixCMS.fetchWixCMSListingDetails(internal_ID, wix_params || { wix_req: "false" })) || { item: {} } : { item: {} };
+
 
             // Convert listing to FRONT END Requirement
 
@@ -1033,7 +1150,7 @@ const actions = {
                 },
             }
             // console.log(listing_roomInfo)
-            return { singleListing, availabilities };
+            return { singleListing, availabilities, wixCMS: wixCMSListingDetails };
 
         } catch (error) {
             console.error("Error fetching listing details :", error.message);
@@ -1045,24 +1162,38 @@ const actions = {
 // Main handler function
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Validate CORS
+
     const isPreflight = corsMiddleware(req, res);
     if (isPreflight) return;
 
     try {
-        const { action, internal_ID, params } = req.body;
+        const { action, internal_ID, params, wix_params } = req.body;
         if (req.headers['x-vercel-warmup']) {
             return res.status(200).json({ message: 'Warm-up request ignored' });
         }
 
         // Increment the request count (PROD ONLY)
         //await incrementRequestCount(internal_ID);
+        if (action?.startsWith("fetchWixCMS")) {
 
+            if (!wix_params.siteURL) {
+                throw new Error("ERROR in WIX CMS REQ: Missing siteURL in params");
+            }
+            const fetchName = action as keyof typeof routesWixCMS;
+            if (routesWixCMS[fetchName]) {
+                //params must have siteURL KEY WHICH IS PASSED FOR THE CALL
+                const actionResults = await routesWixCMS[fetchName](internal_ID, wix_params);
+                return res.status(200).json(actionResults);
+            } else {
+                return res.status(400).json({ error: "Error fetching WIX CMS" });
+            }
+        }
 
         if (action?.startsWith("getGuesty")) {
             const actionName = action as keyof typeof actions;
 
             if (actions[actionName]) {
-                const actionResults = await actions[actionName](internal_ID, params);
+                const actionResults = await actions[actionName](internal_ID, params, wix_params);
                 return res.status(200).json(actionResults);
             } else {
                 return res.status(400).json({ error: "Invalid Guesty action" });
@@ -1105,7 +1236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 try {
                     const fetchResults = await actions[fetchName](internal_ID,
-                        params
+                        params, wix_params
                     );
                     return res.status(200).json(fetchResults);
                 } catch (error) {
