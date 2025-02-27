@@ -26,16 +26,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === 'GET') {
-      // Check if a specific client ID is requested
-      const clientCuid = req.query.clientCuid as string;
-      const clientCuid_int = parseInt(clientCuid);
-      console.log(`[${new Date().toISOString()}] Fetching clients data, clientCuid:`, clientCuid_int);
-      if (clientCuid_int) {
+      console.log("req.method : GET", req.query);
+      const clientCuid = req.query.clientCuid as string | undefined;
+
+      // If clientCuid is provided and is a valid number
+      if (clientCuid && !isNaN(parseInt(clientCuid))) {
+        const clientCuid_int = parseInt(clientCuid);
+        console.log(`[${new Date().toISOString()}] Fetching single client data, clientCuid:`, clientCuid_int);
+
         console.time('Fetch Single Client');
         const client = await withTimeout(
           prisma.client.findUnique({
             where: { id: clientCuid_int }
-          }), 
+          }),
           TIMEOUT_LIMIT
         );
         console.timeEnd('Fetch Single Client');
@@ -57,7 +60,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ...client, actuations });
       }
 
-      // Fetch all clients from the database
+      // If no clientCuid or invalid number, fetch all clients
+      console.log(`[${new Date().toISOString()}] Fetching all clients`);
       console.time('Fetch Clients from Database');
       const clients = await withTimeout(prisma.client.findMany(), TIMEOUT_LIMIT);
       console.timeEnd('Fetch Clients from Database');
@@ -83,16 +87,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Return the clients with actuations or an empty array
       return res.status(200).json(clientsWithActuations || []);
-    } 
+    }
     else if (req.method === 'POST') {
-      const { email, name, integrationId,apikey } = req.body;
+      console.log("req.method : POST", req.query);
+      const { email, name, integrationId, apikey } = req.body;
       console.log(`[${new Date().toISOString()}] Creating new client:`, { email, name, integrationId });
 
       // Validate required fields
       if (!email || !name || !integrationId) {
         console.warn(`[${new Date().toISOString()}] Invalid client data:`, { email, name, integrationId });
-        return res.status(400).json({ 
-          error: 'Missing required fields: email, name, integrationId' 
+        return res.status(400).json({
+          error: 'Missing required fields: email, name, integrationId'
         });
       }
 
@@ -105,18 +110,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               name,
               integrationId,
               cuid: crypto.randomUUID(),
-              ApiKey: apikey ,
-              AppKey: "6Y8NfnB4VT8rsnPaPoS3FnuutAqwrAAIRRooqIgXEK1t7WelINdPJL4GLnUbwj4j6HUzB3gJp/7FT9/v" ,
+              ApiKey: apikey,
+              AppKey: "6Y8NfnB4VT8rsnPaPoS3FnuutAqwrAAIRRooqIgXEK1t7WelINdPJL4GLnUbwj4j6HUzB3gJp/7FT9/v",
               channelID: '',
             }
           }),
           TIMEOUT_LIMIT
         );
         console.timeEnd('Client Creation');
-        console.log(`[${new Date().toISOString()}] Client created successfully:`, { 
-          id: newClient.id, 
+        console.log(`[${new Date().toISOString()}] Client created successfully:`, {
+          id: newClient.id,
           email: newClient.email,
-          name: newClient.name 
+          name: newClient.name
         });
 
         return res.status(201).json(newClient);
@@ -124,17 +129,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error(`[${new Date().toISOString()}] Error creating client:`, error);
         throw error; // Let the main error handler deal with it
       }
-    } 
+    }
     else if (req.method === 'DELETE') {
+      console.log("req.method : DELETE", req.query);
       const clientCuid = req.query.cuid as string; // Extract client ID from query parameters
-      
+
       console.log(`[${new Date().toISOString()}] Deleting client with ID:`, clientCuid);
 
       // Validate client ID
       if (!clientCuid) {
         console.warn(`[${new Date().toISOString()}] Missing client cuid for deletion`);
-        return res.status(400).json({ 
-          error: 'Missing required field: clientId' 
+        return res.status(400).json({
+          error: 'Missing required field: clientId'
         });
       }
 
@@ -149,20 +155,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           TIMEOUT_LIMIT
         );
         console.timeEnd('Client Deletion');
-        
-        console.log(`[${new Date().toISOString()}] Client deleted successfully:`, { 
-          id: deletedClient.id, 
+
+        console.log(`[${new Date().toISOString()}] Client deleted successfully:`, {
+          id: deletedClient.id,
           email: deletedClient.email,
-          name: deletedClient.name 
+          name: deletedClient.name
         });
 
-        return res.status(200).json({ 
+        return res.status(200).json({
           message: 'Client deleted successfully',
-          client: deletedClient 
+          client: deletedClient
         });
       } catch (error) {
         console.error(`[${new Date().toISOString()}] Error deleting client:`, error);
         throw error; // Let the main error handler deal with it
+      }
+    }
+    else if (req.method === 'PUT') {
+      const { clientCuid, data } = req.body;
+      const { name, email, ApiKey, preferences,status } = data;
+      console.log("req.method : PUT", status);
+
+      console.log(`[${new Date().toISOString()}] Updating client:`, { clientCuid, name, email });
+
+      // Validate required fields
+      if (!clientCuid) {
+        console.warn(`[${new Date().toISOString()}] Missing clientCuid for update`);
+        return res.status(400).json({
+          error: 'Missing required field: clientCuid'
+        });
+      }
+
+      try {
+        console.log("preferences",preferences);
+        console.time('Client Update');
+        const updatedClient = await withTimeout(
+          prisma.client.update({
+            where: { id: parseInt(clientCuid) },
+            data: {
+              ...(name && { name }),
+              ...(email && { email }),
+              ...(ApiKey && { ApiKey }),
+              ...(status && { status }),
+              ...(preferences && { preferences })
+            }
+          }),
+          TIMEOUT_LIMIT
+        );
+        console.timeEnd('Client Update');
+
+        console.log(`[${new Date().toISOString()}] Client updated successfully:`, {
+  updatedClient
+        });
+
+        return res.status(200).json(updatedClient);
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error updating client:`, error);
+        if (error instanceof Error && error.message.includes('Record to update not found')) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+        throw error; // Let the main error handler deal with other errors
       }
     }
     else {
@@ -171,8 +223,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   } catch (error) {
     console.error('Error handling request:', error);
-    return res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Internal server error' 
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Internal server error'
     });
   } finally {
     // Ensure the database connection is closed

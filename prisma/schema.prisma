@@ -11,6 +11,12 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL") 
 }
+enum Status {
+  Production @map("Production")
+  Inactive @map("Inactive")
+  Development @map("Development")
+  Testing @map("Testing")
+}
 
 model Client {
   id            Int          @id @default(autoincrement())
@@ -33,6 +39,10 @@ model Client {
   siteUrl       SiteUrl?
   mainLogo      String?
   stateLocation String?
+  status        Status? @default(Development)     // Production, Inactive, ,Development, Testing,
+
+   // New field for storing preferences as JSON (maps to jsonb in Postgres)
+  preferences   Json?         @db.Json @default("{}")
 
   @@index([styleId]) // Index on styleId for improved query performance
 }

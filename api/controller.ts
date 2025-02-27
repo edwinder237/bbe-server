@@ -143,6 +143,17 @@ interface ParamsLodgifySite {
     url: string;
 }
 
+interface ParamsSearch_LodgifySite {
+    guestsCount: number;
+    checkInDateLocalized: string;
+    checkOutDateLocalized: string;
+    location: {
+      city: string;
+      state: string;
+      country: string;
+    };
+  }
+
 interface ParamsAvailabilitiesType {
     default_Lang?: string;
     roomId?: string;
@@ -462,8 +473,17 @@ const routesLodgify = {
             throw new Error(`Fetching Lodgify listings failed: ${error.message}`);
         }
     },
-    fetchLodgifyListingsBETA: async (params) => {
+    fetchLodgifyListingsBETA: async (params,search) => {
         const { id, url } = params
+        const body = search
+        ? {
+            people: search.guestsCount,
+            start: search.checkInDateLocalized,
+            end: search.checkOutDateLocalized,
+            grouped_facilities: "",
+            sort: "price",
+          }
+        : {};
 
         const options = {
             method: "POST",
@@ -491,7 +511,7 @@ const routesLodgify = {
                 "Priority": "u=1, i"
             },
             // Add an empty body if needed
-            body: JSON.stringify({}),
+            body: JSON.stringify(body),
         };
         try {
             const response = await fetch(`https://api.lodgify.com/v2/search/${id}`, options);
@@ -599,7 +619,24 @@ const routesLodgify = {
             keys,
             "fetchLodgifyListingsDates"
         );
+    },
+    fetchLodgifyCurrency: async (keys: keysType, params?: any) => {
+        try {
+            const response = await fetchLodgifyData(
+                `https://api.lodgify.com/v1/currencies/${params?.currency}`,
+                keys,
+                "fetchLodgifyCurrency"
+            );
+
+            // console.log("Troubleshooting",response.items[0].in_out)
+            const data = await response;
+            return data;
+        } catch (error) {
+            console.error("Error in fetchLodgifyCurrency:", error.message);
+            throw new Error(`Fetching Lodgify Currency failed: ${error.message}`);
+        }
     }
+
 
 
 
@@ -787,7 +824,14 @@ const actions = {
         internal_ID: string,
         params: ParamsLodgifySite,
         wix_params: wix_paramsType,
-        auth?: keysType
+        auth?: keysType,
+        search: ParamsSearch_LodgifySite = { 
+            guestsCount: 0, 
+            checkInDateLocalized: "", 
+            checkOutDateLocalized: "", 
+            location: { city: "", state: "", country: "" } 
+        } 
+      
       ) => {
         /**
          * NOTE: This function conditionally fetches API keys either from the `auth` parameter 
@@ -795,7 +839,6 @@ const actions = {
          */
         let apiKey: string;
         let appKey: string;
-      
         if (auth) {
           // If `auth` is provided, extract keys directly from it
           apiKey = auth.apiKey;
@@ -826,7 +869,7 @@ const actions = {
           const promises = [
             routesLodgify.fetchLodgifyListings(keysObject),
             params.id
-              ? routesLodgify.fetchLodgifyListingsBETA(params)
+              ? routesLodgify.fetchLodgifyListingsBETA(params,search)
               : Promise.resolve(null), // fallback if params.id is not provided
             isWixCMSRequested
               ? routesWixCMS.fetchWixCMSListings(internal_ID, wix_params || { wix_req: "false" })
@@ -835,7 +878,7 @@ const actions = {
       
           // Destructure the results in the same order:
           const [listings, additionalData, wixCmsData] = await Promise.all(promises);
-      
+
           // ---------------------------------------------------------
           // 1) OPTIMIZED: Build a map for Wix CMS items to allow O(1) lookups
           // ---------------------------------------------------------
@@ -929,21 +972,25 @@ const actions = {
         const { search, lodgifySite } = params;
         const validDates = !!search.checkInDateLocalized && !!search.checkOutDateLocalized;
 
-        // 
-
+     
         try {
                       // Decide if WixCMS is requested
           const isWixCMSRequested = wix_params?.wix_req;
-
+          const checkInDate = dayjs(search.checkInDateLocalized).format('YYYY-MM-DD');
+          const checkOutDate = dayjs(search.checkOutDateLocalized).format('YYYY-MM-DD');
             const getSearchResults = async (auth): Promise<ListingsReturnType> => {
                 // Parallelize data fetching where possible
                 const [allListings, availabilities] = await Promise.all([
-                    actions.getLodgify_Listings(internal_ID, { id: lodgifySite?.id, url: lodgifySite?.url }, auth),
+                    actions.getLodgify_Listings(internal_ID, { id: lodgifySite?.id, url: lodgifySite?.url }, wix_params, auth,{ 
+                        guestsCount: search.guestsCount || 0, 
+                        checkInDateLocalized: checkInDate || "", 
+                        checkOutDateLocalized: checkOutDate || "", 
+                        location: { city: "", state: "", country: "" } 
+                    }),
                     validDates
                         ? routesLodgify.fetchLodgifyListingsDates(auth, params)
                         : Promise.resolve([]) // No availabilities needed if dates are invalid
                 ]);
-
                 // Build a Map for quick lookup of `listingExtraData`
                 const extraDataMap = new Map(
                     allListings.listingExtraData.map((info: any) => [info.property_id.toString(), info])
@@ -1208,7 +1255,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: "Missing Lodgify API keys" });
             }
             const fetchName = action as keyof typeof routesLodgify;
-
             // Check against routesLodgify, not routes
             if (routesLodgify[fetchName]) {
                 const keysObject: keysType = { appKey: AppKey, apiKey: ApiKey };
