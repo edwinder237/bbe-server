@@ -473,59 +473,59 @@ const routesLodgify = {
             throw new Error(`Fetching Lodgify listings failed: ${error.message}`);
         }
     },
-    fetchLodgifyListingsBETA: async (params,search) => {
-        const { id, url } = params
-        const body = search
-        ? {
-            people: search.guestsCount,
-            start: search.checkInDateLocalized,
-            end: search.checkOutDateLocalized,
-            grouped_facilities: "",
-            sort: "price",
-          }
-        : {people: 1, grouped_facilities: "", sort: "price"};
-
-        const options = {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "*/*",
-                "Accept-Encoding": "gzip, deflate, br, zstd",
-
-
-                //must be changed
-                "Accept-Language": "En",
-                //must be changed
-                "Origin": url,
-                //must be changed
-                "Referer": url,
-
-
-                "Sec-CH-UA": '"Google Chrome";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
-                "Sec-CH-UA-Mobile": "?0",
-                "Sec-CH-UA-Platform": '"macOS"',
-                "Sec-Fetch-Dest": "empty",
-                "Sec-Fetch-Mode": "cors",
-                "Sec-Fetch-Site": "same-site",
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-                "Priority": "u=1, i"
-            },
-            // Add an empty body if needed
-            body: JSON.stringify(body),
+    fetchLodgifyListingsBETA: async (params, search) => {
+        const { id, url } = params;
+      
+        // Determine if dates are invalid
+        const isInvalidDate = 
+          search.checkInDateLocalized === "Invalid Date" || 
+          search.checkOutDateLocalized === "Invalid Date";
+      
+        // Build the request body based on valid dates
+        const body = isInvalidDate
+          ? { people: 1, grouped_facilities: "", sort: "price" }
+          : {
+              people: search.guestsCount,
+              start: search.checkInDateLocalized,
+              end: search.checkOutDateLocalized,
+              grouped_facilities: "",
+              sort: "price",
+            };
+      
+        const headers = {
+          "Content-Type": "application/json; charset=utf-8",
+          "Accept": "*/*",
+          "Accept-Encoding": "gzip, deflate, br, zstd",
+          "Accept-Language": "En", // Adjust as needed
+          "Origin": url,           // Adjust as needed
+          "Referer": url,          // Adjust as needed
+          "Sec-CH-UA": '"Google Chrome";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
+          "Sec-CH-UA-Mobile": "?0",
+          "Sec-CH-UA-Platform": '"macOS"',
+          "Sec-Fetch-Dest": "empty",
+          "Sec-Fetch-Mode": "cors",
+          "Sec-Fetch-Site": "same-site",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+          "Priority": "u=1, i"
         };
+      
+        const options = {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body)
+        };
+      
         try {
-            const response = await fetch(`https://api.lodgify.com/v2/search/${id}`, options);
-console.log(response)
-            if (!response.ok) {
-                throw new Error(`Error Missing lodgify site id and url ${response.status}: ${response.statusText}`);
-            }
-
-            return await response.json();
+          const response = await fetch(`https://api.lodgify.com/v2/search/${id}`, options);
+          if (!response.ok) {
+            throw new Error(`Error Missing lodgify site id and url ${response.status}: ${response.statusText}`);
+          }
+          return await response.json();
         } catch (error) {
-            console.error("Error fetching Lodgify listings:", error);
-            throw error;
+          console.error("Error fetching Lodgify listings:", error);
+          throw error;
         }
-    },
+      },
     fetchLodgifyListingDetails: async (keys: keysType, params: any) =>
         fetchLodgifyData(
             `https://api.lodgify.com/v1/properties/${params.listingId}?includeInOut=false`,
