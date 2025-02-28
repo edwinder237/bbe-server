@@ -483,7 +483,7 @@ const routesLodgify = {
             grouped_facilities: "",
             sort: "price",
           }
-        : {};
+        : {people: 1, grouped_facilities: "", sort: "price"};
 
         const options = {
             method: "POST",
@@ -515,7 +515,7 @@ const routesLodgify = {
         };
         try {
             const response = await fetch(`https://api.lodgify.com/v2/search/${id}`, options);
-
+console.log(response)
             if (!response.ok) {
                 throw new Error(`Error Missing lodgify site id and url ${response.status}: ${response.statusText}`);
             }
