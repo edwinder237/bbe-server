@@ -6,7 +6,8 @@ export const corsMiddleware = (req: VercelRequest, res: VercelResponse) => {
   'http://localhost:3000',
   'https://bbe-server-edwinder237s-projects.vercel.app',
   'https://beyondbooking.vercel.app',
-  'https://dc2198d9-0787-417c-8d12-581c46d1faed.dev.wix-code.com']; //wix server DEV
+  'https://dc2198d9-0787-417c-8d12-581c46d1faed.dev.wix-code.com',
+  'https://v0-admin-app-c9qugobpiap.vercel.app' ]; //wix server DEV
   
   
   const origin = req.headers.origin; // May be undefined if not present
