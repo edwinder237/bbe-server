@@ -3,6 +3,7 @@ import getAuth from "../utils/getAuth";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
+import { parse, startOfDay, format, isValid, compareAsc } from "date-fns";
 
 import {
     integrationTypes,
@@ -132,43 +133,42 @@ export const hostawayFetchers: FetchMap = {
         return response;
 
     },
-    fetchListingCalendar: async ({ token, params }: ApiFetcherParams) => {
+      fetchListingCalendar: async ({ token, params }: ApiFetcherParams) => {
         const { listingId, availabilities } = params;
         const { fromDate, toDate } = availabilities;
       
-        // 1) Parse the input dates without forcing any timezone conversion.
-        const dayjsStart = dayjs(fromDate);
-        const dayjsEnd = dayjs(toDate);
+        // 1) Parse the input dates using date-fns (assuming they are in "yyyy-MM-dd" format)
+        const startDateObj = startOfDay(parse(fromDate, "yyyy-MM-dd", new Date()));
+        const endDateObj = startOfDay(parse(toDate, "yyyy-MM-dd", new Date()));
+        const todayObj = startOfDay(new Date());
       
-        // Format dates to YYYY-MM-DD
-        const startStr = dayjsStart.format("YYYY-MM-DD");
-        const endStr = dayjsEnd.format("YYYY-MM-DD");
-        const todayStr = dayjs().format("YYYY-MM-DD");
-
-      
-        // 2) Check validity
-        if (!dayjsStart.isValid() || !dayjsEnd.isValid()) {
+        // 2) Check validity of the parsed dates
+        if (!isValid(startDateObj) || !isValid(endDateObj)) {
           throw new Error(`Invalid date range. fromDate: ${fromDate}, toDate: ${toDate}`);
         }
       
-        // 3) Ensure both start and end are today or later (compare as strings)
-        if (startStr < todayStr) {
-          throw new Error(`fromDate cannot be earlier than today:${todayStr}  from: ${startStr} to: ${endStr} `);
+        // 3) Ensure both start and end are today or later by comparing day-only values
+        if (compareAsc(startDateObj, todayObj) < 0) {
+            throw new Error(`fromDate cannot be earlier than today:${todayObj}  from: ${startDateObj} to: ${endDateObj} `);
         }
-        if (endStr < todayStr) {
+        if (compareAsc(endDateObj, todayObj) < 0) {
           throw new Error(`toDate cannot be earlier than today: ${toDate}`);
         }
       
-        // 4) fromDate must not be after toDate (compare as strings)
-        if (startStr > endStr) {
+        // 4) Ensure fromDate is not after toDate
+        if (compareAsc(startDateObj, endDateObj) > 0) {
           throw new Error(`Invalid range: fromDate ${fromDate} is after toDate ${toDate}`);
         }
       
-        // 5) Build the endpoint URL using the formatted dates
+        // 5) Format dates as "yyyy-MM-dd"
+        const startStr = format(startDateObj, "yyyy-MM-dd");
+        const endStr = format(endDateObj, "yyyy-MM-dd");
+      
+        // 6) Build the endpoint URL
         const endpointUrl = `https://api.hostaway.com/v1/listings/${listingId}/calendar?startDate=${startStr}&endDate=${endStr}&includeResources=`;
         const action = "fetchHostawayListingCalendar";
       
-        // 6) Fetch the data
+        // 7) Fetch the data
         const response = await fetchHostawayData({ endpointUrl, token, action, method: "GET" });
         return response;
       },
