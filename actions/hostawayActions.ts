@@ -137,10 +137,16 @@ export const hostawayFetchers: FetchMap = {
         const { listingId, availabilities } = params;
         const { fromDate, toDate } = availabilities;
       
-        // 1) Parse the input dates using date-fns (assuming they are in "yyyy-MM-dd" format)
-        const startDateObj = startOfDay(parse(fromDate, "yyyy-MM-dd", new Date()));
-        const endDateObj = startOfDay(parse(toDate, "yyyy-MM-dd", new Date()));
-        const todayObj = startOfDay(new Date());
+  // Parse the input dates assuming "yyyy-MM-dd" format.
+  const startDateObj = parse(fromDate, "yyyy-MM-dd", new Date());
+  const endDateObj = parse(toDate, "yyyy-MM-dd", new Date());
+
+  // Format the dates back to strings (ignoring time).
+  const startStr = format(startDateObj, "yyyy-MM-dd");
+  const endStr = format(endDateObj, "yyyy-MM-dd");
+
+  // Get today's date as a string in the same format.
+  const todayStr = format(new Date(), "yyyy-MM-dd");
       
         // 2) Check validity of the parsed dates
         if (!isValid(startDateObj) || !isValid(endDateObj)) {
@@ -148,21 +154,19 @@ export const hostawayFetchers: FetchMap = {
         }
       
         // 3) Ensure both start and end are today or later by comparing day-only values
-        if (compareAsc(startDateObj, todayObj) < 0) {
-            throw new Error(`fromDate cannot be earlier than today:${todayObj}  from: ${startDateObj} to: ${endDateObj} `);
+        if (startStr < todayStr) {
+            throw new Error(`fromDate cannot be earlier than today:${todayStr}  from: ${startDateObj} to: ${endDateObj} `);
         }
-        if (compareAsc(endDateObj, todayObj) < 0) {
+        if (endStr < todayStr) {
           throw new Error(`toDate cannot be earlier than today: ${toDate}`);
         }
       
         // 4) Ensure fromDate is not after toDate
-        if (compareAsc(startDateObj, endDateObj) > 0) {
+        if (startStr > endStr) {
           throw new Error(`Invalid range: fromDate ${fromDate} is after toDate ${toDate}`);
         }
       
-        // 5) Format dates as "yyyy-MM-dd"
-        const startStr = format(startDateObj, "yyyy-MM-dd");
-        const endStr = format(endDateObj, "yyyy-MM-dd");
+
       
         // 6) Build the endpoint URL
         const endpointUrl = `https://api.hostaway.com/v1/listings/${listingId}/calendar?startDate=${startStr}&endDate=${endStr}&includeResources=`;
