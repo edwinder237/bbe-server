@@ -144,6 +144,7 @@ export const hostawayFetchers: FetchMap = {
         const startStr = dayjsStart.format("YYYY-MM-DD");
         const endStr = dayjsEnd.format("YYYY-MM-DD");
         const todayStr = dayjs().format("YYYY-MM-DD");
+
       
         // 2) Check validity
         if (!dayjsStart.isValid() || !dayjsEnd.isValid()) {
@@ -152,7 +153,7 @@ export const hostawayFetchers: FetchMap = {
       
         // 3) Ensure both start and end are today or later (compare as strings)
         if (startStr < todayStr) {
-          throw new Error(`fromDate cannot be earlier than today: ${fromDate}`);
+          throw new Error(`fromDate cannot be earlier than today:${todayStr}  from: ${startStr} to: ${endStr} `);
         }
         if (endStr < todayStr) {
           throw new Error(`toDate cannot be earlier than today: ${toDate}`);
