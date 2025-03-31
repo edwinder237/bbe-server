@@ -49,7 +49,7 @@ model Client {
 
 model Integration {
   id        Int      @id @default(autoincrement())
-  title     String   @unique // Lodgify or Guesty
+  title     String   @unique // Lodgify or Guesty or hostaway
   users     Client[] // One-to-many relationship with Client
   createdAt DateTime @default(now()) // Timestamp for record creation
   updatedAt DateTime @updatedAt      // Timestamp for last update

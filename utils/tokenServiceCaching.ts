@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { decrypt, encrypt } from '../utils/encrypter';
-import { fetchNewTokenFromGuesty } from './getNewToken';
+import { fetchNewTokenFromGuesty,fetchNewTokenFromHostaway } from './getNewToken';
 import { kv } from '@vercel/kv';
 
 const prisma = new PrismaClient();
@@ -39,7 +39,7 @@ const getCacheKey = (internal_ID: string, type: 'token' | 'lodgifyKeys'): string
  * @param internal_ID - The client's internal ID.
  * @returns {Promise<TokenStatus>}
  */
-export async function isTokenExpired(internal_ID: string): Promise<TokenStatus> {
+export async function isTokenExpired({ internal_ID, integrationType }: { internal_ID: string; integrationType: string }): Promise<TokenStatus> {
   const cacheKey = getCacheKey(internal_ID, 'token');
   try {
     const cachedToken = await kv.get<{ token: string; expiry: number }>(cacheKey);
@@ -56,16 +56,31 @@ export async function isTokenExpired(internal_ID: string): Promise<TokenStatus> 
       select: { accessToken: true, tokenExpire: true, clientID: true, clientSecret: true },
     });
 
-    if (!client?.accessToken || !client.tokenExpire || currentTime >= client.tokenExpire - 3600) {
-    //  console.log(`Fetching new token for client: ${internal_ID}`);
-      const newToken = await fetchNewToken(internal_ID, {
-        clientID: client?.clientID,
-        clientSecret: client?.clientSecret,
-      });
-
-      return { expired: false, token: newToken };
+    if (!client) {
+      throw new Error(`Client not found for ID: ${internal_ID}`);
     }
 
+    if (!client.accessToken || !client.tokenExpire || currentTime >= client.tokenExpire - 3600) {
+    //  console.log(`Fetching new token for client: ${internal_ID}`);
+    if(integrationType === "hostaway"){
+      const newToken = await fetchNewHostAwayToken(internal_ID, {
+        clientID: client.clientID,
+        clientSecret: client.clientSecret,
+      });
+      return { expired: false, token: newToken };
+    }
+    else if(integrationType === "guesty"){
+      const newToken = await fetchNewToken(internal_ID, {
+        clientID: client.clientID,
+        clientSecret: client.clientSecret,
+      });
+      return { expired: false, token: newToken };
+    }
+    }
+
+    if (!client.accessToken) {
+      throw new Error('Access token not found in database');
+    }
     await kv.set(cacheKey, { token: client.accessToken, expiry: client.tokenExpire });
     //console.log(`Token fetched from database for client: ${internal_ID}`);
     return { expired: false, token: decrypt(client.accessToken) };
@@ -84,6 +99,30 @@ export async function isTokenExpired(internal_ID: string): Promise<TokenStatus> 
 export async function fetchNewToken(internal_ID: string, authKeys: any): Promise<string> {
   try {
     const { access_token, expires_in } = await fetchNewTokenFromGuesty(authKeys);
+    const encryptedToken = encrypt(access_token);
+    const expiryInSeconds = Math.floor(Date.now() / 1000) + expires_in;
+
+    await prisma.client.update({
+      where: { cuid: internal_ID },
+      data: { accessToken: encryptedToken, tokenExpire: expiryInSeconds },
+    });
+
+    await kv.set(getCacheKey(internal_ID, 'token'), {
+      token: encryptedToken,
+      expiry: expiryInSeconds,
+    });
+
+    console.log(`New token fetched and updated for client: ${internal_ID}`);
+    return access_token;
+  } catch (error) {
+    console.error('Error fetching new token:', error);
+    throw new Error('Failed to fetch and update token.');
+  }
+}
+
+export async function fetchNewHostAwayToken(internal_ID: string, authKeys: any): Promise<string> {
+  try {
+    const { access_token, expires_in } = await fetchNewTokenFromHostaway(authKeys);
     const encryptedToken = encrypt(access_token);
     const expiryInSeconds = Math.floor(Date.now() / 1000) + expires_in;
 

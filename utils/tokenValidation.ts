@@ -6,9 +6,9 @@ const prisma = new PrismaClient();
 
 export default async function tokenValidator( internal_ID, needNewToken ) {
   console.time('Token Validation Execution Time');
-  
+  const integrationType = "hostaway"; // or "guesty" based on your logic
   try {
-    const tokenStatus = await isTokenExpired(internal_ID);
+    const tokenStatus = await isTokenExpired({internal_ID,integrationType});
 
     if (tokenStatus.expired || needNewToken) {
       const authKeys = tokenStatus.client;
