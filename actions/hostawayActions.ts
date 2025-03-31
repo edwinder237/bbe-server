@@ -1,6 +1,8 @@
 import { handleFetch } from "../utils/handleFetching";
 import getAuth from "../utils/getAuth";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+dayjs.extend(utc);
 
 import {
     integrationTypes,
@@ -133,43 +135,42 @@ export const hostawayFetchers: FetchMap = {
     fetchListingCalendar: async ({ token, params }: ApiFetcherParams) => {
         const { listingId, availabilities } = params;
         const { fromDate, toDate } = availabilities;
-
-        // 1) Parse the input dates using dayjs
-        const dayjsStart = dayjs(fromDate);
-        const dayjsEnd = dayjs(toDate);
-
+      
+        // 1) Parse the input dates using dayjs (local time)
+        const dayjsStart = dayjs(fromDate).startOf("day");
+        const dayjsEnd = dayjs(toDate).startOf("day");
+        const today = dayjs().startOf("day");
+      
         // 2) Check validity
         if (!dayjsStart.isValid() || !dayjsEnd.isValid()) {
-            throw new Error(`Invalid date range. fromDate: ${fromDate}, toDate: ${toDate}`);
+          throw new Error(`Invalid date range. fromDate: ${fromDate}, toDate: ${toDate}`);
         }
-
+      
         // 3) Ensure both start and end are today or later
-        const today = dayjs().startOf("day");
         if (dayjsStart.isBefore(today)) {
-            throw new Error(`fromDate cannot be earlier than today: ${fromDate}`);
+          throw new Error(`fromDate cannot be earlier than today: ${fromDate}`);
         }
         if (dayjsEnd.isBefore(today)) {
-            throw new Error(`toDate cannot be earlier than today: ${toDate}`);
+          throw new Error(`toDate cannot be earlier than today: ${toDate}`);
         }
-
+      
         // 4) fromDate must not be after toDate
         if (dayjsStart.isAfter(dayjsEnd)) {
-            throw new Error(`Invalid range: fromDate ${fromDate} is after toDate ${toDate}`);
+          throw new Error(`Invalid range: fromDate ${fromDate} is after toDate ${toDate}`);
         }
-
+      
         // 5) Format as YYYY-MM-DD
         const startDate = dayjsStart.format("YYYY-MM-DD");
         const endDate = dayjsEnd.format("YYYY-MM-DD");
-
+      
         // 6) Build the endpoint URL
         const endpointUrl = `https://api.hostaway.com/v1/listings/${listingId}/calendar?startDate=${startDate}&endDate=${endDate}&includeResources=`;
         const action = "fetchHostawayListingCalendar";
-
+      
         // 7) Fetch the data
         const response = await fetchHostawayData({ endpointUrl, token, action, method: "GET" });
         return response;
-
-    },
+      },
     fetchListingQuote: async ({ token, params }: ApiFetcherParams) => {
         const { guestsCount, checkInDateLocalized, checkOutDateLocalized, addons } = params.quote;
         let couponId = null;
