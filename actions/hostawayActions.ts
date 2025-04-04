@@ -1,6 +1,7 @@
 import { handleFetch } from "../utils/handleFetching";
 import getAuth from "../utils/getAuth";
 import dayjs from "dayjs";
+import {nomadStrLocations,nomadStrKey} from "./data/nomad-str";
 
 import {
     integrationTypes,
@@ -147,10 +148,10 @@ export const hostawayFetchers: FetchMap = {
         //const today = dayjs().startOf("day");
         //if (dayjsStart.isBefore(today)) {
         //    throw new Error(`fromDate cannot be earlier than today: ${fromDate}`);
-       // }
+        // }
         //if (dayjsEnd.isBefore(today)) {
-       //     throw new Error(`toDate cannot be earlier than today: ${toDate}`);
-       // }
+        //     throw new Error(`toDate cannot be earlier than today: ${toDate}`);
+        // }
 
         // 4) fromDate must not be after toDate
         if (dayjsStart.isAfter(dayjsEnd)) {
@@ -278,7 +279,9 @@ export const hostawayActions = {
                 }
             }
 
-            return { total: listings.count, items: converted_listings, locations: cityResults }
+            const locations = internal_ID === nomadStrKey ? nomadStrLocations : cityResults
+
+            return { total: listings.count, items: converted_listings, locations: locations }
         } catch (error: any) {
             // Log error details for production monitoring
             console.error("Error in getListings:", error.message);
@@ -513,7 +516,7 @@ export const hostawayActions = {
             const [quote] = await Promise.all([hostawayFetchers.fetchListingQuote({ token, params, default_Lang: "en" })]);
             const financeField = quote.result.components;
             const totalPrice = quote.result.totalPrice;
-           // console.log("PRICE", totalPrice, quote.result.components)
+            // console.log("PRICE", totalPrice, quote.result.components)
             const spread_params = { ...params, reservation: { ...params.reservation, totalPrice: totalPrice, financeField: financeField } }
             const reservation_response = await hostawayFetchers.fetchListingReservation({ token, params: spread_params, default_Lang: "en" })
             const reservation = { item: reservation_response };
