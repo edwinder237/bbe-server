@@ -1,6 +1,5 @@
 import { da } from "date-fns/locale";
 import { handleFetchParams } from "./types";
-import { startsWith } from "lodash";
 export const handleFetch = async ({ fetchUrl, options, action }: handleFetchParams) => {
     const startTime = Date.now(); // Capture the start time
 
@@ -15,11 +14,11 @@ export const handleFetch = async ({ fetchUrl, options, action }: handleFetchPara
 
         const data = await response.json();
 
-        if(startsWith(fetchUrl,"https://checkout.lodgify.com/api/v1/checkout/price?propertyId")){
+        if (fetchUrl.startsWith("https://checkout.lodgify.com/api/v1/checkout/price?propertyId")) {
             if (response.status === 400) {
                 return { success: true, data:data.title || response.statusText };
             }
-        }
+        } 
           
         // Handle other non-OK statuses
         if (!response.ok) {
