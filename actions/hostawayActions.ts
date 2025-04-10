@@ -2,6 +2,7 @@ import { handleFetch } from "../utils/handleFetching";
 import getAuth from "../utils/getAuth";
 import dayjs from "dayjs";
 import {nomadStrLocations,nomadStrKey} from "./data/nomad-str";
+import { getLocations } from "../utils/getLocations";
 
 import {
     integrationTypes,
@@ -260,7 +261,6 @@ export const hostawayActions = {
             }
             const token = tokenResponse.token;
 
-
             const listings = await hostawayFetchers.fetchListings({ token, params, default_Lang: "en" });
 
             // CONVERT LISTINGS TO FRONT END REQUIREMENTS 
@@ -282,6 +282,32 @@ export const hostawayActions = {
             const locations = internal_ID === nomadStrKey ? nomadStrLocations : cityResults
 
             return { total: listings.count, items: converted_listings, locations: locations }
+        } catch (error: any) {
+            // Log error details for production monitoring
+            console.error("Error in getListings:", error.message);
+            throw error;
+        }
+    },
+    getListingsLocations : async ({ internal_ID, params }: actionsParams): Promise<any> => {
+        try {
+            const tokenResponse = await getAuth({ internal_ID, needNewToken: false, integrationType: "hostaway" });
+            if (!tokenResponse.success) {
+                throw new Error(`Token validation failed: ${tokenResponse.message}`);
+            }       
+            if (!tokenResponse.token) {
+                throw new Error("Token is undefined");
+            }
+            const token = tokenResponse.token;
+            const listings = await hostawayFetchers.fetchListings({ token, params, default_Lang: "en" });
+            // CONVERT LISTINGS TO FRONT END REQUIREMENTS
+            const converted_listings = listings.result.map((listing: hostaway_listings) => new hostaway_listings_converter(listing).convert());
+           
+            // Gather unique city/state/country using a Set
+            const uniqueCitySet = getLocations(converted_listings);
+
+            const locations = internal_ID === nomadStrKey ? nomadStrLocations : uniqueCitySet
+            
+            return {  locations: locations }
         } catch (error: any) {
             // Log error details for production monitoring
             console.error("Error in getListings:", error.message);

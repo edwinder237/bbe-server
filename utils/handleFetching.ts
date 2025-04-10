@@ -1,5 +1,6 @@
 import { da } from "date-fns/locale";
 import { handleFetchParams } from "./types";
+import { startsWith } from "lodash";
 export const handleFetch = async ({ fetchUrl, options, action }: handleFetchParams) => {
     const startTime = Date.now(); // Capture the start time
 
@@ -14,11 +15,17 @@ export const handleFetch = async ({ fetchUrl, options, action }: handleFetchPara
 
         const data = await response.json();
 
+        if(startsWith(fetchUrl,"https://checkout.lodgify.com/api/v1/checkout/price?propertyId")){
+            if (response.status === 400) {
+                return { success: true, data:data.title || response.statusText };
+            }
+        }
+          
         // Handle other non-OK statuses
         if (!response.ok) {
             throw new Error(`FETCH_HANDLER - failed with status ${data?.status} - ${data?.message}`);
         }
-
+// LODGIFY ERRORS
 
         if (response.status === 400) {
             throw new Error(`Error ${response.status}: ${data.title || response.statusText}`);
@@ -34,7 +41,7 @@ export const handleFetch = async ({ fetchUrl, options, action }: handleFetchPara
             if (fetchUrl === "https://booking.guesty.com/api/reservations/quotes") {
                 return data.error.code;
             } else
-                throw new Error(`Error in action '${action}': ${response.status} ${response.statusText} - message: ${data?.message}`);
+                throw new Error(`Error in HANDLE FETCH UTIL '${action}': ${response.status} ${response.statusText} - message: ${data?.message}`);
         }
 
 

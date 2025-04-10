@@ -648,9 +648,20 @@ export const lodgifyActions = {
             const { default_Lang } = params;
 
             const response = await lodgifyFetchers.fetchListingQuote({ auth, params, default_Lang })
+            if(response === "The minimum stay for this House is 30 days"){
+                return { item: null, error: response, message: response }
+            }
+            
+            if(response === "Select a range of available dates."){
+                return { item: null, error: response, message: response }
+            }
+            if(response === "The arrival date is not valid"){
+                return { item: null, error: response, message: response }
+            }
 
             const QUOTE = new lodgify_listing_quote_converter(response);
             const CONVERTED_QUOTE = QUOTE.convert();
+            
             return { item: CONVERTED_QUOTE };
         } catch (error) {
             console.error("Error ACTION - fetching quote data:", error);

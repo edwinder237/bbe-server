@@ -48,7 +48,7 @@ const actions: ActionsMap = {
 
     //////////////LODGIFY ACTIONS////////
     getLodgify_test: async ({ internal_ID, params, wix_params, auth }) => {
-        return lodgifyActions.getListingSearch({ internal_ID, params, wix_params })
+        return hostawayActions.getListingsLocations({ internal_ID, params, wix_params })
     },
     getLodgify_Listings: async ({ internal_ID, params, wix_params, auth }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
         return lodgifyActions.getListings({ internal_ID, params, wix_params, auth });
@@ -71,6 +71,9 @@ const actions: ActionsMap = {
     },
 
     ///////////////HOSTAWAY ACTIONS////////
+    getHostaway_Locations: async ({ internal_ID, params, wix_params, auth }) => {
+        return hostawayActions.getListingsLocations({ internal_ID, params, wix_params })
+    },
     getHostaway_Listings: async ({ internal_ID, params }: actionsParams) => {
         return hostawayActions.getlistings({ internal_ID, params });
     },
