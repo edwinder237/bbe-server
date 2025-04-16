@@ -1,10 +1,11 @@
-import { da } from "date-fns/locale";
 import { handleFetchParams } from "./types";
+
 export const handleFetch = async ({ fetchUrl, options, action }: handleFetchParams) => {
     const startTime = Date.now(); // Capture the start time
 
     try {
         const response = await fetch(fetchUrl, options);
+
 
         // Check for 429 status first
         if (response.status === 429) {
@@ -13,6 +14,8 @@ export const handleFetch = async ({ fetchUrl, options, action }: handleFetchPara
         }
 
         const data = await response.json();
+
+        //console.log(data.error.data.errors);
 
         if (fetchUrl.startsWith("https://checkout.lodgify.com/api/v1/checkout/price?propertyId")) {
             if (response.status === 400) {

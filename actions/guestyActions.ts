@@ -18,9 +18,15 @@ import {
     CLIENT_LISTING_CALENDAR_RETURN,
     CLIENT_LISTING_QUOTE_RETURN,
     CLIENT_LISTINGS_OBJECT,
+    CLIENT_LISTING_PAYMENT_RETURN,
+    CLIENT_LISTING_RESERVATION_RETURN,
+    CLIENT_LISTINGS_LOCATIONS_RETURN,
 } from "../utils/types";
 
 import {
+    guestyListingCalendarReturnType,
+    guestyListingDetailsReturnType,
+    guestyListingsLocationReturnType,
     guestyListingsObjectType,
     guestyListingsReturnType,
 
@@ -30,8 +36,10 @@ import {
     guesty_listings_converter,
     guesty_listing_detail_Converter,
     guesty_listing_quote_Converter,
-    guesty_listing_reviews_converter
+    guesty_listing_reviews_converter,
+    guesty_listing_calendar_converter
 } from "../utils/clientConverter";
+
 
 interface guestyApiFetcherParams {
     token: string;
@@ -60,7 +68,7 @@ interface SearchParamsType {
 }
 
 interface BuildGuestyUrlArgs {
-    search: SearchParamsType;
+    search?: SearchParamsType;
 }
 
 // Helper function to fetch data with timeout
@@ -102,6 +110,7 @@ const fetchGuestyData = async ({
                 10000
             ) // 10-second timeout
     );
+    //   console.log("endpointUrl", endpointUrl,options);
     try {
         const fetchPromise = handleFetch({
             fetchUrl: endpointUrl,
@@ -109,6 +118,7 @@ const fetchGuestyData = async ({
             action,
         }) as Promise<FetchResponse>;
         const response = await Promise.race([fetchPromise, timeout]);
+
         if (!response.success) {
             throw new Error(
                 `Failed to fetch Guesty API from ${action}: ${response.message}`
@@ -122,16 +132,14 @@ const fetchGuestyData = async ({
 };
 
 export const guestyFetchers = {
-    fetchListings: async ({
-        token,
-    }: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
+    fetchListings: async ({ token,}: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
         const endpointUrl = "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=3";
         const action = "fetchGuestyListings";
         const method = "GET";
         const response = await fetchGuestyData({ endpointUrl, token, action, method });
         return response;
     },
-    fetchListingSearch: async ({ token, params }) => {
+    fetchListingSearch: async ({ token, params }: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
         const { location } = params.search || { city: "", state: "", country: "" };
         const { guestsCount, checkInDateLocalized, checkOutDateLocalized } =
             params.search;
@@ -141,14 +149,17 @@ export const guestyFetchers = {
         const response = await fetchGuestyData({ endpointUrl, token, action, method: "GET" });
         return response;
     },
-    fetchLocation: async ({ token }: guestyApiFetcherParams) => {
+    fetchLocation: async ({ token }: guestyApiFetcherParams): Promise<guestyListingsLocationReturnType> => {
         const endpointUrl = "https://booking.guesty.com/api/listings/cities";
         const action = "fetchGuestyCities";
         const method = "GET";
         const response = await fetchGuestyData({ endpointUrl, token, action, method });
         return response;
     },
-    fetchListingDetails: async ({ listingId, token }: guestyApiFetcherParams) => {
+    fetchListingDetails: async ({ listingId, token }: guestyApiFetcherParams): Promise<guestyListingDetailsReturnType> => {
+        if (listingId === undefined) {
+            throw new Error("Listing ID is undefined");
+        }
         const endpointUrl = `https://booking.guesty.com/api/listings/${listingId}`;
         const action = "fetchGuestyListingDetails";
         const method = "GET";
@@ -162,15 +173,18 @@ export const guestyFetchers = {
         const response = await fetchGuestyData({ endpointUrl, token, action, method });
         return response;
     },
-    fetchListingCalendar: async ({ token, params }) => {
+    fetchListingCalendar: async ({ token, params }): Promise<guestyListingCalendarReturnType> => {
         const { listingId, availabilities } = params;
         const { fromDate, toDate } = availabilities;
         const action = "fetchGuestyListingAvailabilities";
         const method = "GET";
         const endpointUrl = `https://booking.guesty.com/api/listings/${listingId}/calendar?from=${fromDate}&to=${toDate}`;
-        return await fetchGuestyData({ endpointUrl, token, action, method });
+        const response = await fetchGuestyData({ endpointUrl, token, action, method });
+        return response;
+
     },
     fetchPaymentProviderID: async ({ token, params }) => {
+
         const endpointUrl = `https://booking.guesty.com/api/listings/${params.listingId}/payment-provider`;
         const action = "fetchGuestyPaymentProviderID";
         const method = "GET";
@@ -275,7 +289,7 @@ export const guestyFetchers = {
 
 export const guestyActions = {
     getlistings: async ({ internal_ID }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
-       
+
         try {
             const tokenResponse = await getAuth({
                 internal_ID,
@@ -290,11 +304,10 @@ export const guestyActions = {
             if (!token) {
                 throw new Error("Token is undefined");
             }
-            
+
             try {
-                const [listings, cities] = await Promise.all([
-                    guestyFetchers.fetchListings({ token }),
-                    guestyFetchers.fetchLocation({ token }),
+                const [listings] = await Promise.all([
+                    guestyFetchers.fetchListings({ token })
                 ]);
                 const pagination = listings.pagination;
                 const converted_listings = listings.results.map(
@@ -303,7 +316,6 @@ export const guestyActions = {
                 );
                 return {
                     items: converted_listings,
-                    locations: cities.results,
                     pagination,
                     total: converted_listings.length,
                 };
@@ -313,18 +325,14 @@ export const guestyActions = {
             }
         } catch (error: any) {
             // Log error details for production monitoring
-            console.error("Error in getListings:", error.message);
+            console.error("Error in GUESTY ACTION - getListings:", error.message);
             throw error;
         }
     },
     getListingDetails: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTING_DETAILS_RETURN> => {
         const { listingId } = params;
         try {
-            const tokenResponse = await getAuth({
-                internal_ID,
-                needNewToken: false,
-                integrationType: "guesty",
-            });
+            const tokenResponse = await getAuth({internal_ID,needNewToken: false,integrationType: "guesty"});
             if (!tokenResponse.success) {
                 throw new Error(`Token validation failed: ${tokenResponse.message}`);
             }
@@ -332,6 +340,7 @@ export const guestyActions = {
                 throw new Error("Token is undefined");
             }
             const token = tokenResponse.token;
+
             // Fetch listing details and reviews
             const [listingDetails, reviews, availabilitie] = await Promise.all([
                 guestyFetchers.fetchListingDetails({ listingId, token }),
@@ -346,7 +355,10 @@ export const guestyActions = {
 
             //SPREAD ADDITIONAL DATA TO ITEM 
 
-            const spread_converted_listing = { ...converted_listing, calendar: availabilities, reviews: reviews };
+            const converted_availabilities = new guesty_listing_calendar_converter(availabilities).convert();
+
+
+            const spread_converted_listing = { ...converted_listing, calendar: converted_availabilities, reviews: reviews };
 
             return { item: spread_converted_listing };
         } catch (error: any) {
@@ -368,17 +380,15 @@ export const guestyActions = {
                 token,
                 params,
             });
-            return response;
+            const converted_availabilities = new guesty_listing_calendar_converter(response).convert().items;
+            return { items: converted_availabilities };
         } catch (error: any) {
             // Log error details for production monitoring
             console.error("Error in getListingCalendar:", error.message);
             throw error;
         }
     },
-    getListingReservation: async ({ // to refactor 
-        internal_ID,
-        params,
-    }: actionsParams): Promise<any> => {
+    getListingReservation: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTING_RESERVATION_RETURN> => {
         try {
             const tokenResponse = await getAuth({
                 internal_ID,
@@ -392,10 +402,11 @@ export const guestyActions = {
                 throw new Error("Token is undefined");
             }
             const token = tokenResponse.token;
-            const response = await guestyFetchers.fetchListingCalendar({
+            const response = await guestyFetchers.fetchListingReservation({
                 token,
                 params,
             });
+
             return response;
         } catch (error: any) {
             // Log error details for production monitoring
@@ -422,13 +433,9 @@ export const guestyActions = {
             throw error;
         }
     },
-    getListingSearch: async ({ internal_ID, params }: actionsParams) => {
+    getListingSearch: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
         try {
-            const tokenResponse = await getAuth({
-                internal_ID,
-                needNewToken: false,
-                integrationType: "guesty",
-            });
+            const tokenResponse = await getAuth({internal_ID,needNewToken: false,integrationType: "guesty"});
             if (!tokenResponse.success) {
                 throw new Error(`Token validation failed: ${tokenResponse.message}`);
             }
@@ -436,11 +443,11 @@ export const guestyActions = {
                 throw new Error("Token is undefined");
             }
             const token = tokenResponse.token;
+
             const response = await guestyFetchers.fetchListingSearch({
                 token,
                 params,
             });
-
             const converted_listings = response.results.map(
                 (listing: guestyListingsObjectType) =>
                     new guesty_listings_converter(listing).convert()
@@ -449,14 +456,19 @@ export const guestyActions = {
                 total: converted_listings.length,
                 items: converted_listings,
             };
-            return { filteredListings: results };
+            return { items: results.items, total: results.total };
+
         } catch (error: any) {
             // Log error details for production monitoring
             console.error("Error in getListingSearch:", error.message);
             throw error;
         }
     },
-    getListingPayment: async ({ internal_ID, params }: actionsParams) => {
+    getListingPayment: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTING_PAYMENT_RETURN> => {
+        const { listingId } = params;
+        if (listingId === undefined) {
+            throw new Error("Listing ID is undefined");
+        }
         try {
             const tokenResponse = await getAuth({
                 internal_ID,
@@ -470,14 +482,18 @@ export const guestyActions = {
                 throw new Error("Token is undefined");
             }
             const token = tokenResponse.token;
-
-            const [listingDetails, paymentProvider] = await Promise.all([
-                guestyFetchers.fetchListingDetails({ token, params }),
+            const [
+                listingDetails,
+                paymentProvider
+            ] = await Promise.all([
+                guestyFetchers.fetchListingDetails({ token, params, listingId }),
                 guestyFetchers.fetchPaymentProviderID({ token, params })
             ]);
+
             const listing = new guesty_listing_detail_Converter(listingDetails);
             const singleListing = listing.convert();
-            return { singleListing, paymentProvider };
+            const spread_converted_listing = { ...singleListing, paymentProvider: paymentProvider };
+            return { item: spread_converted_listing };
         } catch (error: any) {
             // Log error details for production monitoring
             console.error("Error in getListingPayment:", error.message);
@@ -485,6 +501,34 @@ export const guestyActions = {
         }
 
     },
+    getListingLocations: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_LOCATIONS_RETURN> => {
+        try {
+            const tokenResponse = await getAuth({
+                internal_ID,
+                needNewToken: false,
+                integrationType: "guesty",
+            });
+            if (!tokenResponse.success) {
+                throw new Error(`Token validation failed: ${tokenResponse.message}`);
+            }
+            if (!tokenResponse.token) {
+                throw new Error("Token is undefined");
+            }
+            const token = tokenResponse.token;
+            const response = await guestyFetchers.fetchLocation({
+                token,
+                params,
+            });
+
+            return { items: response.results, total: response.count };
+
+        } catch (error: any) {
+            // Log error details for production monitoring
+            console.error("Error in GUESTY ACTION - getLocations:", error.message);
+            throw error;
+        }
+    },
+
 };
 
 // URL-building logic in a function

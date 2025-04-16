@@ -13,6 +13,7 @@ import {
     ActionsMap,
 } from "../utils/types";
 import { wixCmsFetchers } from "../actions/wixCmsActions";
+import { get } from "lodash";
 
 
 const actions: ActionsMap = {
@@ -45,6 +46,9 @@ const actions: ActionsMap = {
     getGuesty_ListingsSearch: async ({ internal_ID, params }) => {
         return guestyActions.getListingSearch({ internal_ID, params });
     },
+    getGuesty_ListingLocations: async ({ internal_ID, params }) => {
+        return guestyActions.getListingLocations({ internal_ID, params });
+    },
 
     //////////////LODGIFY ACTIONS////////
     getLodgify_test: async ({ internal_ID, params, wix_params, auth }) => {
@@ -52,6 +56,9 @@ const actions: ActionsMap = {
     },
     getLodgify_Listings: async ({ internal_ID, params, wix_params, auth }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
         return lodgifyActions.getListings({ internal_ID, params, wix_params, auth });
+    },
+    getLodgify_ListingLocations: async ({ internal_ID, params, wix_params }) => {
+        return lodgifyActions.getListingsLocations({ internal_ID, params, wix_params });
     },
 
     getLodgify_Listings_search: async ({ internal_ID, params, wix_params }) => {

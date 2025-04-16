@@ -18,7 +18,8 @@ import {
     FetchMap,
     ApiFetcherParams,
     CLIENT_LISTING_RESERVATION_RETURN,
-    CLIENT_LISTING_PAYMENT_RETURN
+    CLIENT_LISTING_PAYMENT_RETURN,
+    CLIENT_LISTINGS_LOCATIONS_RETURN
 } from "../utils/types";
 
 import {
@@ -37,6 +38,7 @@ import {
     hostaway_listing_addons_converter,
 
 } from "../utils/clientConverter";
+import { spread } from "lodash";
 
 
 const integrationType: integrationTypes = "hostaway";
@@ -266,29 +268,15 @@ export const hostawayActions = {
             // CONVERT LISTINGS TO FRONT END REQUIREMENTS 
             const converted_listings = listings.result.map((listing: hostaway_listings) => new hostaway_listings_converter(listing).convert());
 
-            // Gather unique city/state/country using a Set
+            return { total: listings.count, items: converted_listings };
 
-            const uniqueCitySet = new Set();
-            const cityResults: { city: string; state: string; country: string; }[] = [];
-            for (const item of converted_listings) {
-                const { city, state, country } = item.address;
-                const key = `${city}||${state}||${country}`;
-                if (!uniqueCitySet.has(key)) {
-                    uniqueCitySet.add(key);
-                    cityResults.push({ city, state, country });
-                }
-            }
-
-            const locations = internal_ID === nomadStrKey ? nomadStrLocations : cityResults
-
-            return { total: listings.count, items: converted_listings, locations: locations }
         } catch (error: any) {
             // Log error details for production monitoring
-            console.error("Error in getListings:", error.message);
+            console.error("Error in HOSTAWAY ACTION - getListings:", error.message);
             throw error;
         }
     },
-    getListingsLocations : async ({ internal_ID, params }: actionsParams): Promise<any> => {
+    getListingsLocations : async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_LOCATIONS_RETURN> => {
         try {
             const tokenResponse = await getAuth({ internal_ID, needNewToken: false, integrationType: "hostaway" });
             if (!tokenResponse.success) {
@@ -298,16 +286,19 @@ export const hostawayActions = {
                 throw new Error("Token is undefined");
             }
             const token = tokenResponse.token;
-            const listings = await hostawayFetchers.fetchListings({ token, params, default_Lang: "en" });
+
+            const spread_params = { ...params, limit: 1000, offset: 0 }
+            const listings = await hostawayFetchers.fetchListings({ token, params:spread_params, default_Lang: "en" });
             // CONVERT LISTINGS TO FRONT END REQUIREMENTS
             const converted_listings = listings.result.map((listing: hostaway_listings) => new hostaway_listings_converter(listing).convert());
            
             // Gather unique city/state/country using a Set
             const uniqueCitySet = getLocations(converted_listings);
 
-            const locations = internal_ID === nomadStrKey ? nomadStrLocations : uniqueCitySet
+            const locations =  uniqueCitySet
             
-            return {  locations: locations }
+            return {  items: locations, total: locations.length }
+
         } catch (error: any) {
             // Log error details for production monitoring
             console.error("Error in getListings:", error.message);

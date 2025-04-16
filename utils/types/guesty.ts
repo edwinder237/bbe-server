@@ -131,9 +131,31 @@ export type guestylistingDetailsObjectType = {
     tags: string[];
     parentId: string | null;
 };
-export type guestyListingDetailsReturnType = {
-    item: guestylistingDetailsObjectType;
+export type guestyListingDetailsReturnType = guestylistingDetailsObjectType;
+;
+export type guestyListingCalendarObjectType = {
+    date: string; // Date in the format YYYY-MM-DD
+    minNights: number;
+    isBaseMinNights: boolean;
+    status: string; // Could be an enum ('available', 'unavailable', etc.)
+    cta: boolean; // Call to action
+    ctd: boolean; // Call to action disabled
 };
+export type guestyListingCalendarReturnType = guestyListingCalendarObjectType[];
+
+export type guestyListingsLocationObjectType = {
+    city: string;
+    country: string;
+    state: string;
+};
+export type guestyListingsLocationReturnType = {
+    results: guestyListingsLocationObjectType[];
+    count: number;
+    skip: number;
+    limit: number;
+};
+
+
 
 
 // LISTING CALANDAR

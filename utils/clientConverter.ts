@@ -27,7 +27,8 @@ import {
   guestylistingDetailsObjectType,
   guestyListingQuoteObjectType,
   guestyListingReviewsObjectType,
-  guestyListingReviewsReturnType
+  guestyListingReviewsReturnType,
+  guestyListingCalendarReturnType
 
 
 } from './types/guesty';
@@ -826,7 +827,59 @@ export class guesty_listing_quote_Converter {
   }
 
 }
+export class guesty_listing_calendar_converter {
+  private disabledDates: guestyListingCalendarReturnType;
 
+  constructor(private input: guestyListingCalendarReturnType) {
+    // Keep only non-available ("disabled") dates
+    this.disabledDates = this.input.filter(
+      (date) => date.status !== "available"
+    );
+  }
+
+  public convert(): CLIENT_LISTING_CALENDAR_RETURN {
+    // Convert each disabled date string into a Date object
+    const originalDates: Date[] = this.disabledDates.map((d) =>
+      parseISO(d.date)
+    );
+    // Remove the first date of each consecutive block (optimized single pass)
+    const processedDates = this.removeFirstDayOfConsecutiveBlocks(originalDates);
+
+
+    // Return the final structure with items as Date[]
+    return {
+      items: processedDates,
+    };
+  }
+
+  private removeFirstDayOfConsecutiveBlocks(dates: Date[]): Date[] {
+    if (dates.length === 0) return [];
+
+    // Sort ascending in-place (avoid copying for speed).
+    dates.sort((a, b) => a.getTime() - b.getTime());
+
+    const result: Date[] = [];
+    let prevDate = dates[0]; // We'll skip this, as it's the "first" in its block.
+
+    for (let i = 1; i < dates.length; i++) {
+      const current = dates[i];
+      const dayDiff =
+        (current.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+
+      // Only add `current` if it continues a block from the previous date (dayDiff === 1)
+      // If dayDiff !== 1, we skip `current` because it's the first day of a new block.
+      if (dayDiff === 1) {
+        result.push(current);
+      }
+      // Regardless, track `current` as our new 'previous' date
+      prevDate = current;
+    }
+
+    return result;
+  }
+
+
+}
 /// HOSTAWAY ///
 export class hostaway_listings_converter {
   private input: hostaway_listings;

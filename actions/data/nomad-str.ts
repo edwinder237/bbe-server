@@ -50,3 +50,8 @@ export  const nomadStrLocations = [
     { city: 'Austin', state: 'TX', country: 'United States of America' }
   ]
 
+
+  export const policy = {
+    cancellation: "",
+    payment: "",
+  };

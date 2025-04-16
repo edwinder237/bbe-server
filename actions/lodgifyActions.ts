@@ -18,7 +18,8 @@ import {
     FetchMap,
     ApiFetcherParams,
     lodgifyAuthParams,
-    CLIENT_LISTINGS_OBJECT
+    CLIENT_LISTINGS_OBJECT,
+    CLIENT_LISTINGS_LOCATIONS_RETURN
 } from "../utils/types";
 
 import {
@@ -221,7 +222,7 @@ const lodgifySiteFetchers = {
 
 export const lodgifyFetchers: FetchMap = {
     fetchListings: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
-        const { offset, limit, pageNum } = params
+        const { pageNum } = params
         const endpointUrl = `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=${pageNum}&size=${12}`;
         const action = "fetchLodgifyListings";
         const lodgifyAuth = auth;
@@ -373,22 +374,6 @@ export const lodgifyActions = {
                 );
 
             // ---------------------------------------------------------
-            // 4) OPTIMIZED: Gather unique city/state/country using a Set
-            // ---------------------------------------------------------
-            const uniqueCitySet = new Set();
-            const cityResults: { city: string; state: string; country: string }[] =
-                [];
-            for (const item of converted_listings) {
-                const { city, state, country } = item.address;
-                const key = `${city}||${state}||${country}`;
-                if (!uniqueCitySet.has(key)) {
-                    uniqueCitySet.add(key);
-                    cityResults.push({ city, state, country });
-                }
-            }
-            const cities = { results: cityResults };
-
-            // ---------------------------------------------------------
             // 5) Decide if we attach Lodgify Site Data "listingExtraData"
             // ---------------------------------------------------------
             const lodgifySiteListingsData = isLodgifySiteRequested ? lodfifySite?.data.items : null;
@@ -412,7 +397,6 @@ export const lodgifyActions = {
             return {
                 total: listings.count,
                 items: spread_converted_listings,
-                locations: cities.results,
             };
         } catch (error: any) {
             // Log error details for production monitoring
@@ -710,4 +694,48 @@ export const lodgifyActions = {
         };
 
     },
+    getListingsLocations: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_LOCATIONS_RETURN> => {
+        const keys = await getLodgifyKeys(internal_ID);
+        const { ApiKey, AppKey } = keys.client;
+        if (!ApiKey || !AppKey) {
+            throw new Error("Missing Lodgify API keys");
+        };
+        try {
+            const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
+
+            const spread_params = {...params,  pageNum: 1,size: 1000}
+            const listings = await lodgifyFetchers.fetchListings({ auth: keysObject, params:spread_params,default_Lang: "en" })   
+
+            const converted_listings = listings.items
+            .filter((lst: lodgifyListingsObjectTpye) => lst.is_active)
+            .map((listing: lodgifyListingsObjectTpye) =>
+                new lodgify_listings_converter(listing).convert()
+            );
+
+        // ---------------------------------------------------------
+        // 4) OPTIMIZED: Gather unique city/state/country using a Set
+        // ---------------------------------------------------------
+        const uniqueCitySet = new Set();
+        const cityResults: { city: string; state: string; country: string }[] =
+            [];
+        for (const item of converted_listings) {
+            const { city, state, country } = item.address;
+            const key = `${city}||${state}||${country}`;
+            if (!uniqueCitySet.has(key)) {
+                uniqueCitySet.add(key);
+                cityResults.push({ city, state, country });
+            }
+        }
+    
+            return {items: cityResults, total: listings.count};
+
+        } catch (error) {
+            console.error(
+                "Error - LODGIFY ACTION - fetching listing locations :",
+                error.message
+            );
+            throw new Error(`Fetching failed: ${error.message}`);
+        };
+
+    }
 };

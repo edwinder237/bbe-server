@@ -362,6 +362,16 @@ export type CLIENT_LISTING_PAYMENT_RETURN = {
   message?: string;
 };
 
+export type CLIENT_LISTINGS_LOCATIONS_OBJECT = {
+  city: string;
+  state: string;
+  country: string;
+};
+
+export type CLIENT_LISTINGS_LOCATIONS_RETURN = {
+  items: CLIENT_LISTINGS_LOCATIONS_OBJECT[];
+  total: number;
+};
 
 
 // FETCHERS PROP TYPES
