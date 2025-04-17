@@ -26,6 +26,7 @@ import {
 import {
     guestyListingCalendarReturnType,
     guestyListingDetailsReturnType,
+    guestyListingReviewsReturnType,
     guestyListingsLocationReturnType,
     guestyListingsObjectType,
     guestyListingsReturnType,
@@ -133,7 +134,7 @@ const fetchGuestyData = async ({
 
 export const guestyFetchers = {
     fetchListings: async ({ token,}: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
-        const endpointUrl = "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=3";
+        const endpointUrl = "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=9";
         const action = "fetchGuestyListings";
         const method = "GET";
         const response = await fetchGuestyData({ endpointUrl, token, action, method });
@@ -166,7 +167,7 @@ export const guestyFetchers = {
         const response = await fetchGuestyData({ endpointUrl, token, action, method });
         return response;
     },
-    fetchListingReviews: async ({ token, listingId }) => {
+    fetchListingReviews: async ({ token, listingId }: guestyApiFetcherParams): Promise<guestyListingReviewsReturnType> => {
         const endpointUrl = `https://booking.guesty.com/api/reviews?listingId=${listingId}`;
         const action = "fetchGuestyListingReviews";
         const method = "GET";
@@ -353,14 +354,18 @@ export const guestyActions = {
 
             const availabilities = availabilitie.filter((date) => date.status !== "available");
 
+            const converted_reviews = new guesty_listing_reviews_converter(reviews).convert();
+
+
             //SPREAD ADDITIONAL DATA TO ITEM 
 
             const converted_availabilities = new guesty_listing_calendar_converter(availabilities).convert();
 
 
-            const spread_converted_listing = { ...converted_listing, calendar: converted_availabilities, reviews: reviews };
+            const spread_converted_listing = { ...converted_listing, calendar: converted_availabilities, reviews: converted_reviews };
 
             return { item: spread_converted_listing };
+            
         } catch (error: any) {
             console.error("Error in getListingDetails:", error.message);
             throw error;
