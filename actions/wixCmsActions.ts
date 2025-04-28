@@ -1,3 +1,4 @@
+import { aW } from "@upstash/redis/zmscore-Dc6Llqgr";
 import { handleFetch } from "../utils/handleFetching";
 
 import { FetchResponse, internal_ID } from "../utils/types";
@@ -22,17 +23,11 @@ const fetchwixCmsData = async ({ endpointUrl, action, method }): Promise<any> =>
             "Content-Type": "application/json",
         },
     };
-    const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout fetching data from ${action}`)), 10000) // 10-second timeout
-    );
-    try {
-        const fetchPromise = handleFetch({ fetchUrl: endpointUrl, options, action }) as Promise<FetchResponse>;
-        const response = await Promise.race([fetchPromise, timeout]);
-        if (!response.success) {
-            throw new Error(`Failed to fetch data from ${action}: ${response.message}`);
-        }
 
-        return response.data;
+    try {
+        const response = await handleFetch({ fetchUrl: endpointUrl, options, action }) as Promise<any>;
+        return response;
+
     } catch (error) {
         console.error(`Error in fetchLodgifyData: ${error.message}`);
         throw error;

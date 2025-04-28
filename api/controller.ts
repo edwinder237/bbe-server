@@ -76,6 +76,9 @@ const actions: ActionsMap = {
     getLodgify_ListingCurrencies: async ({ internal_ID, params }) => {
         return lodgifyActions.getListingCurrencies({ internal_ID, params });
     },
+    getLodgify_ListingsRateCalendar: async ({ internal_ID, params }) => {
+        return lodgifyActions.getListingsRateCalendar({ internal_ID, params });
+    },
 
     ///////////////HOSTAWAY ACTIONS////////
     getHostaway_Locations: async ({ internal_ID, params, wix_params, auth }) => {
@@ -164,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const fetchResults = await actions[action]({ internal_ID, params, wix_params });
                     return res.status(200).json(fetchResults);
                 } catch (error) {
-                    console.error("Error fetching Lodgify data:", error.message);
+                    console.error("Error CONTROLLER fetching Lodgify data:", error.message);
                     return res.status(500).json({
                         error: "Failed to fetch Lodgify data",
                         message: error.message,

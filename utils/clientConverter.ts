@@ -9,6 +9,7 @@ import {
   CLIENT_LISTING_REVIEWS_RETURN,
   CLIENT_LISTING_CALENDAR_RETURN,
   CLIENT_LISTING_ADDONS_OBJECT,
+  CLIENT_LISTINGS_RATESCALENDAR_OBJECT,
 
 } from "./types";
 import {
@@ -19,6 +20,7 @@ import {
   Lodgify_Listing_Details_SITE_ObjectType,
   lodgifyListingCalendarObectType,
   lodgifyListingCalendarReturnType,
+  lodgifyListingsRatesCalendarReturnType,
 
 } from './types/lodgify';
 
@@ -140,6 +142,7 @@ export class lodgify_listing_details_converter {
   public convert(): CLIENT_LISTING_DETAILS_OBJECT {
     return {
       id: this.input.id.toString(),
+      roomId: this.input.rooms[0]?.id.toString(),
       title: this.input.name,
       base_currency: this.input.currency.code,
       bathrooms: this.input.rooms[0]?.bathrooms,
@@ -381,7 +384,7 @@ export class lodgify_listing_details_SITE_converter {
         items: []
       },
 
-      roomId: this.input?.rooms?.[0]?.id ?? 999, // Default to 999 if roomId is undefined
+      //roomId: this.input?.rooms?.[0]?.id.toString() ?? "999", // Default to 999 if roomId is undefined
 
       address: {
         isAddressHidden: this.input?.addressInfo?.isAddressHidden ?? false,
@@ -408,10 +411,10 @@ export class lodgify_listing_details_SITE_converter {
 
 };
 export class lodgify_listing_calendar_converter {
-  private input: lodgifyListingCalendarReturnType;
+  private input: lodgifyListingCalendarObectType[];
   private disabledDates: lodgifyListingCalendarObectType[];
 
-  constructor(input: lodgifyListingCalendarReturnType) {
+  constructor(input: lodgifyListingCalendarObectType[]) {
     this.input = input;
     //return only disabledDates Dates
     this.disabledDates = this.input.filter((date: lodgifyListingCalendarObectType) => date.is_available !== true);
@@ -435,7 +438,8 @@ export class lodgify_listing_calendar_converter {
     }
 
     const dates: Date[] = [];
-    let currentDate = addDays(parseISO(period_start), 1);
+    //let currentDate = addDays(parseISO(period_start), 1);
+    let currentDate = parseISO(period_start);
     const endDate = parseISO(period_end);
 
     while (currentDate <= endDate) {
@@ -445,14 +449,32 @@ export class lodgify_listing_calendar_converter {
 
     return dates;
   };
-  // Private function that computes the average rating from the reviewCategory array.
-  private convertDate(input: string): Date {
-    // Parse the input date string to a Date object
-    const date = parseISO(input);
 
-    // Return the Date object directly
-    return date;
+};
+export class lodgify_listings_rateCalendar_converter {
+  private input: lodgifyListingsRatesCalendarReturnType;
+
+  constructor(input: lodgifyListingsRatesCalendarReturnType) {
+    this.input = input;
   }
+
+  // Method to convert input to front-end format
+  public convert(): CLIENT_LISTINGS_RATESCALENDAR_OBJECT {
+    const dates = this.input.calendar_items
+      .filter((item) => item.date !== null)
+      .map((item) => ({
+        date: item.date!,                    // we know it’s not null here
+        price: item.prices[0].price_per_day, // pick the first tier’s price
+      }));
+
+    return {
+      currency: this.input.rate_settings.currency_code || "USD",
+      dates: dates,
+    };
+  }
+
+
+
 
 
 };
@@ -468,7 +490,7 @@ export class lodgify_listing_quote_converter {
   public convert(): CLIENT_LISTING_QUOTE_OBJECT {
 
     return {
-      propertyId: this.input.propertyId.toString(),
+      propertyId: this.input.propertyId?.toString(),
       currency: this.input.currencyCode,
       ratePlanId: "",
 
@@ -735,6 +757,12 @@ export class guesty_listing_quote_Converter {
   public convert(): CLIENT_LISTING_QUOTE_OBJECT {
     const quote = this.input.rates?.ratePlans[0].ratePlan?.money;
     const quoteParams = this.input.rates?.ratePlans[0];
+    const coupon = this.input.coupons.length && [{
+      name: this.input.coupons[0]?.name,
+      value: this.input.coupons[0]?.discount || 0,
+      type: this.input.coupons[0]?.discountType || "",
+      currency: quote.currency}]
+    const totalCoupon = this.input.coupons[0]?.discount || 0;
     return {
       quoteId: this.input._id,
       createdAt: this.input.createdAt,
@@ -768,6 +796,10 @@ export class guesty_listing_quote_Converter {
       totalTaxes: quote.totalTaxes,
       taxesItems: this.convertInvoiceItems(quote.invoiceItems, "tax"),
 
+      // Promoo Information
+      totalPromo: totalCoupon,
+      promoItems: coupon,
+
     }
   }
   //helper method that gets nightly cost for a quote
@@ -782,6 +814,7 @@ export class guesty_listing_quote_Converter {
 
     return basePrice / stayLength;
   }
+  
 
   // Helper method to convert Invoice items
   private convertInvoiceItems(
@@ -853,6 +886,15 @@ export class guesty_listing_calendar_converter {
   }
 
   private removeFirstDayOfConsecutiveBlocks(dates: Date[]): Date[] {
+    if (dates.length === 0) return [];
+
+    // Sort ascending in-place (avoid copying for speed).
+    dates.sort((a, b) => a.getTime() - b.getTime());
+
+    // Simply return all dates, do not remove any.
+    return dates;
+  }
+  private removeFirstDayOfConsecutiveBlocksLEGACY(dates: Date[]): Date[] {
     if (dates.length === 0) return [];
 
     // Sort ascending in-place (avoid copying for speed).
@@ -1115,6 +1157,16 @@ export class hostaway_listing_calendar_converter {
     // Sort ascending in-place (avoid copying for speed).
     dates.sort((a, b) => a.getTime() - b.getTime());
 
+    // Simply return all dates, do not remove any.
+    return dates;
+  }
+
+  private removeFirstDayOfConsecutiveBlocksLegacy(dates: Date[]): Date[] {
+    if (dates.length === 0) return [];
+
+    // Sort ascending in-place (avoid copying for speed).
+    dates.sort((a, b) => a.getTime() - b.getTime());
+
     const result: Date[] = [];
     let prevDate = dates[0]; // We'll skip this, as it's the "first" in its block.
 
@@ -1187,7 +1239,7 @@ export class hostaway_listing_quote_converter {
       totalTaxes: totalTaxes,
       taxesItems: taxes,
 
-      // Taxes Information
+      // Promoo Information
       totalPromo: totalCoupon,
       promoItems: coupon,
 

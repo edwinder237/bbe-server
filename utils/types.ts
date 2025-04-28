@@ -202,7 +202,7 @@ export type CLIENT_LISTING_DETAILS_OBJECT = {
   addons?: CLIENT_LISTING_ADDONS_RETURN;
   wixCms?: any;
   //LODGIFY ONLY 
-  roomId?: number;
+  roomId?: string;
 };
 export type CLIENT_LISTING_DETAILS_RETURN = { // pass conditional lodgify site and wix and roomInfo to item 
   item: CLIENT_LISTING_DETAILS_OBJECT;
@@ -245,6 +245,7 @@ export type CLIENT_LISTING_QUOTE_OBJECT = {
   promoItems?: {
     name: string;
     value: number;
+    type?: string | "PERCENT";
   }[];
 
 
@@ -373,6 +374,20 @@ export type CLIENT_LISTINGS_LOCATIONS_RETURN = {
   total: number;
 };
 
+export type CLIENT_LISTINGS_RATESCALENDAR_OBJECT = {
+  dates: {
+    date: string; // yyyy-mm-dd
+    price: number;
+  }[]
+
+  currency: string;
+};
+export type CLIENT_LISTINGS_RATESCALENDAR_RETURN = {
+  items: CLIENT_LISTINGS_RATESCALENDAR_OBJECT[];
+};
+
+
+
 
 // FETCHERS PROP TYPES
 
@@ -493,6 +508,13 @@ export type ApiFetcherParams = {
   queryParams?: URLSearchParams
 
 };
+
+export interface GlobalFetcherReturnType {
+  success: boolean;
+  data: any;
+  message?: string;
+  error?: string; 
+}
 
 // 2. Define the return type if desired
 export interface ActionReturn {

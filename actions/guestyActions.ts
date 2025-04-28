@@ -40,6 +40,7 @@ import {
     guesty_listing_reviews_converter,
     guesty_listing_calendar_converter
 } from "../utils/clientConverter";
+import { error } from "console";
 
 
 interface guestyApiFetcherParams {
@@ -71,15 +72,23 @@ interface SearchParamsType {
 interface BuildGuestyUrlArgs {
     search?: SearchParamsType;
 }
+interface guestyApiReturn {
+    results?: any;
+    pagination?: {
+        total: number
+        cursor: {
+            next: string;
+        }
+    }
+    error: {
+        code: string;
+        message: string;
+        data: { moreDetails: any, requestId: string; }
+    }
+}
 
 // Helper function to fetch data with timeout
-const fetchGuestyData = async ({
-    endpointUrl,
-    token,
-    action,
-    method,
-    body,
-}: guestyApiProp): Promise<any> => {
+const fetchGuestyData = async ({ endpointUrl, token, action, method, body }: guestyApiProp): Promise<any> => {
     const defaultOptions: RequestInit = {
         method: method,
         headers: {
@@ -104,36 +113,25 @@ const fetchGuestyData = async ({
 
     const options = getOptionsRequest(action);
 
-    const timeout = new Promise<never>(
-        (_, reject) =>
-            setTimeout(
-                () => reject(new Error(`Timeout fetching data from ${action}`)),
-                10000
-            ) // 10-second timeout
-    );
-    //   console.log("endpointUrl", endpointUrl,options);
-    try {
-        const fetchPromise = handleFetch({
-            fetchUrl: endpointUrl,
-            options,
-            action,
-        }) as Promise<FetchResponse>;
-        const response = await Promise.race([fetchPromise, timeout]);
 
-        if (!response.success) {
-            throw new Error(
-                `Failed to fetch Guesty API from ${action}: ${response.message}`
-            );
+    try {
+        const response = await handleFetch({ fetchUrl: endpointUrl, options, action }) as guestyApiReturn;
+
+        if (response.error) {
+            console.log(response.error)
+            throw new Error(`${response?.error.code} `);
         }
-        return response.data;
+
+        return response;
+
     } catch (error) {
-        console.error(`Error in fetchGuestyData: ${error.message}`);
+        console.error(`Error in GUESTY FETCHER: ${error}`);
         throw error;
     }
 };
 
 export const guestyFetchers = {
-    fetchListings: async ({ token,}: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
+    fetchListings: async ({ token, }: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
         const endpointUrl = "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=9";
         const action = "fetchGuestyListings";
         const method = "GET";
@@ -333,7 +331,7 @@ export const guestyActions = {
     getListingDetails: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTING_DETAILS_RETURN> => {
         const { listingId } = params;
         try {
-            const tokenResponse = await getAuth({internal_ID,needNewToken: false,integrationType: "guesty"});
+            const tokenResponse = await getAuth({ internal_ID, needNewToken: false, integrationType: "guesty" });
             if (!tokenResponse.success) {
                 throw new Error(`Token validation failed: ${tokenResponse.message}`);
             }
@@ -365,7 +363,7 @@ export const guestyActions = {
             const spread_converted_listing = { ...converted_listing, calendar: converted_availabilities, reviews: converted_reviews };
 
             return { item: spread_converted_listing };
-            
+
         } catch (error: any) {
             console.error("Error in getListingDetails:", error.message);
             throw error;
@@ -440,7 +438,7 @@ export const guestyActions = {
     },
     getListingSearch: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
         try {
-            const tokenResponse = await getAuth({internal_ID,needNewToken: false,integrationType: "guesty"});
+            const tokenResponse = await getAuth({ internal_ID, needNewToken: false, integrationType: "guesty" });
             if (!tokenResponse.success) {
                 throw new Error(`Token validation failed: ${tokenResponse.message}`);
             }

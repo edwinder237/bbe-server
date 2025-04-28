@@ -237,7 +237,12 @@ export type guestyListingQuoteObjectType = {
             }[];
         }[];
     };
-    coupons: any[]; // Modify based on coupon structure
+    coupons: {
+        name: string; //"testing",
+        couponCode: string;// "DISCOUNT30",
+        discountType: string;// "PERCENT",
+        discount: number;
+    }[]; // Modify based on coupon structure
     numberOfGuests: {
         numberOfAdults: number;
     };

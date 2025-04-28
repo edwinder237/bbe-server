@@ -19,7 +19,8 @@ import {
     ApiFetcherParams,
     lodgifyAuthParams,
     CLIENT_LISTINGS_OBJECT,
-    CLIENT_LISTINGS_LOCATIONS_RETURN
+    CLIENT_LISTINGS_LOCATIONS_RETURN,
+    GlobalFetcherReturnType
 } from "../utils/types";
 
 import {
@@ -41,12 +42,23 @@ import {
     lodgify_listing_roomInfo_converter,
     lodgify_listing_details_SITE_converter,
     lodgify_listing_quote_converter,
-    lodgify_listing_calendar_converter
+    lodgify_listing_calendar_converter,
+    lodgify_listings_rateCalendar_converter
 } from "../utils/clientConverter";
+
 
 const integrationType: integrationTypes = "lodgify";
 
-
+interface LodgifyApiReturnType {
+    items: any;
+    item: any;
+    //ON ERRORS
+    type: string;
+    title: string; // message
+    status: number;//400,
+    detail: string;
+    traceId: string;
+}
 
 interface LodgifyApiProp {
     endpointUrl: string;
@@ -79,7 +91,7 @@ interface lodgifySite {
 }
 
 // Helper function to fetch Lodgify data with timeout
-const fetchLodgifyData = async ({ endpointUrl, lodgifyAuth, action, method, default_Lang }: LodgifyApiProp): Promise<any> => {
+const fetchLodgifyData = async ({ endpointUrl, lodgifyAuth, action, method, default_Lang }: LodgifyApiProp): Promise<LodgifyApiReturnType> => {
     const appKey = lodgifyAuth?.appKey;
     const apiKey = lodgifyAuth?.apiKey;
 
@@ -92,29 +104,18 @@ const fetchLodgifyData = async ({ endpointUrl, lodgifyAuth, action, method, defa
             "Accept-Language": default_Lang || "en"
         },
     };
-    const timeout = new Promise<never>(
-        (_, reject) =>
-            setTimeout(
-                () => reject(new Error(`Timeout fetching data from ${action}`)),
-                10000
-            ) // 10-second timeout
-    );
+
     try {
-        const fetchPromise = handleFetch({
-            fetchUrl: endpointUrl,
-            options,
-            action,
-        }) as Promise<FetchResponse>;
-        const response = await Promise.race([fetchPromise, timeout]);
-        if (!response.success) {
-            throw new Error(
-                `Failed to fetch data from ${action}: ${response.message}`
-            );
+        const response = await handleFetch({ fetchUrl: endpointUrl, options, action }) as LodgifyApiReturnType;
+        if (response.status === 400){
+            console.warn(`Error: ${response.title || response.detail}`)
+            throw new Error (`${response.title || response.detail}`)
         }
 
-        return response.data;
+            return response
+
     } catch (error) {
-        console.error(`Error FETCHER - lodgifyAPI: ${error.message}`);
+        console.error(`Error LODGIFY FETCHER: ${error.message}`);
         throw error;
     }
 };
@@ -146,20 +147,9 @@ const fetchLodgifySiteData = async ({ endpointUrl, method, lodgifySite, action, 
         body: JSON.stringify(body),
     };
 
-    const timeout = new Promise<never>(
-        (_, reject) =>
-            setTimeout(
-                () => reject(new Error(`Timeout fetching data from ${action}`)),
-                10000
-            ) // 10-second timeout
-    );
     try {
-        const fetchPromise = handleFetch({
-            fetchUrl: endpointUrl,
-            options,
-            action,
-        }) as Promise<FetchResponse>;
-        const response = await Promise.race([fetchPromise, timeout]);
+        const response = await handleFetch({fetchUrl: endpointUrl,options,action,}) as FetchResponse;
+
         if (!response.success) {
             throw new Error(
                 `Failed to fetch data from ${action}: ${response.message}`
@@ -221,15 +211,18 @@ const lodgifySiteFetchers = {
 };
 
 export const lodgifyFetchers: FetchMap = {
-    fetchListings: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
-        const { pageNum } = params
-        const endpointUrl = `https://api.lodgify.com/v2/properties?includeCount=${true}&includeInOut=${true}&page=${pageNum}&size=${12}`;
-        const action = "fetchLodgifyListings";
-        const lodgifyAuth = auth;
-        const method = "GET";
-        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth, action, method, default_Lang: "en" });
+    fetchListings: async ({ auth: lodgifyAuth, params: { pageNum } }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
+        const endpointUrl = `https://api.lodgify.com/v2/properties?includeCount=true&includeInOut=true&page=${pageNum}&size=12`;
+        const response = await fetchLodgifyData({
+            endpointUrl,
+            lodgifyAuth,
+            action: "fetchLodgifyListings",
+            method: "GET",
+            default_Lang: "en",
+        });
 
         return response;
+
     },
     fetListingsSearch: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
         const { search, default_Lang } = params || {};
@@ -246,7 +239,7 @@ export const lodgifyFetchers: FetchMap = {
         const action = "fetchLodgifyListingDetails";
         const method = "GET";
         const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth, action, method, default_Lang: "en" });
-        return { item: response };
+        return response;
     },
     fetchListingCalendar: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingCalendarReturnType> => {
         const { listingId, availabilities } = params;
@@ -287,7 +280,19 @@ export const lodgifyFetchers: FetchMap = {
         const method = "GET";
         const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth, action, method, default_Lang });
         return response
+    },
+    fetchListingsRatesCalendar: async ({ auth, params }) => {
+        const { default_Lang, availabilities,listingId,roomId } = params;
+        const { fromDate, toDate } = availabilities;
+
+        const endpointUrl = `https://api.lodgify.com/v2/rates/calendar?RoomTypeId=${roomId}&HouseId=${listingId}&StartDate=${fromDate}&EndDate=${toDate}`;;
+        const action = "fetchLodgifyRatesCalendar";
+        const lodgifyAuth = auth;
+        const method = "GET";
+        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth, action, method, default_Lang });
+        return response
     }
+
 };
 
 export const lodgifyActions = {
@@ -343,6 +348,7 @@ export const lodgifyActions = {
                     ? wixCmsFetchers.fetchListings({ wix_params })
                     : Promise.resolve({ items: [] }), // Fallback if wixCms is not requested
             ];
+
             // Conditional Fetching return
             const [listings, lodfifySite, wixCmsData] = await Promise.all(
                 promises
@@ -359,7 +365,7 @@ export const lodgifyActions = {
             }
             let lodgifySiteMap = new Map();
             if (isLodgifySiteRequested) {
-                for (const site of lodfifySite?.data.items || []) {
+                for (const site of lodfifySite?.items || []) {
                     lodgifySiteMap.set(site.property_id, site);
                 }
             }
@@ -376,7 +382,7 @@ export const lodgifyActions = {
             // ---------------------------------------------------------
             // 5) Decide if we attach Lodgify Site Data "listingExtraData"
             // ---------------------------------------------------------
-            const lodgifySiteListingsData = isLodgifySiteRequested ? lodfifySite?.data.items : null;
+            const lodgifySiteListingsData = isLodgifySiteRequested ? lodfifySite?.items : null;
 
             // ---------------------------------------------------------
             // 6) SPRED ADDITIONAL DATA TO ITEM OBJECT
@@ -404,7 +410,7 @@ export const lodgifyActions = {
             throw error;
         }
     },
-    getListingSearch: async ({ internal_ID, params, wix_params }: actionsParams): Promise<any> => {
+    getListingSearch: async ({ internal_ID, params, wix_params }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
         const keys = await getLodgifyKeys(internal_ID);
         const { ApiKey, AppKey } = keys.client;
 
@@ -434,6 +440,7 @@ export const lodgifyActions = {
                         ? lodgifyFetchers.fetListingsSearch({ auth, params, default_Lang })
                         : Promise.resolve([]) // No availabilities needed if dates are invalid
                 ]);
+   
                 // Early exits for invalid or empty listings
                 if (!allListings.items?.length) {
                     return {
@@ -467,7 +474,6 @@ export const lodgifyActions = {
                     if (checkInDate < checkOutDate) {
                         const START = dayjs(checkInDateLocalized).format('YYYY-MM-DD');
                         const END = dayjs(checkOutDateLocalized).format('YYYY-MM-DD');
-
                         // Create a Set of available property IDs
                         const availableIds = new Set(
                             availabilities
@@ -582,37 +588,39 @@ export const lodgifyActions = {
                 lodgifySiteFetchers.fetchSiteListingDetails({ auth: keysObject, params, default_Lang }),
                 lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang })
             ]);
+            
             //Fetch roomInfo to access listing photos - ONLY SUPPORT ONE ROOM FOR NOW
-            const RoomId = listingDetails?.item?.rooms[0]?.id.toString();
+            const RoomId = listingDetails?.rooms[0]?.id.toString();
             // SPREAD to params 
             params = { ...params, roomId: RoomId }
             const roomInfo = await lodgifyFetchers.fetchListingRoomInfo({ internal_ID, auth: keysObject, params, default_Lang });
             //FETCH additional data from WIX CMS
+
             const ListingDetails_WIX = isWixCMSRequested ? await wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params }) : { item: {} };
 
             // CONVERSION TO FRONT END FORMAT
 
             //LISTING DETAILS 
-            const converted_listing = new lodgify_listing_details_converter(listingDetails?.item as lodgifyListingDetailsObjectType).convert();
+            const converted_listing = new lodgify_listing_details_converter(listingDetails as lodgifyListingDetailsObjectType).convert();
 
             //LISTING DETAILS (lodgify site api) ** gets addional data missing from other apis 
-            const converted_listing_SITE = new lodgify_listing_details_SITE_converter(listingDetails_SITE as Lodgify_Listing_Details_SITE_ObjectType).convert();
+            const converted_listing_SITE = new lodgify_listing_details_SITE_converter(listingDetails_SITE as unknown as Lodgify_Listing_Details_SITE_ObjectType).convert();
 
             //ROOM INFO 
-            const converted_listingRoomInfo = new lodgify_listing_roomInfo_converter(roomInfo as lodgifyListingRoomInfoObjectType).convert();
+              const converted_listingRoomInfo = new lodgify_listing_roomInfo_converter(roomInfo as lodgifyListingRoomInfoObjectType).convert();
             //CALENDAR 
-            const converted_calendar = new lodgify_listing_calendar_converter(calendar as lodgifyListingCalendarReturnType).convert();
-
+            const converted_calendar = new lodgify_listing_calendar_converter(calendar as lodgifyListingCalendarObectType[]).convert();
+        
             //SPREAD ADDITIONAL DATA TO ITEM 
 
             const spread_converted_listing = {
                 ...converted_listing,
-                ...converted_listingRoomInfo,
+                  ...converted_listingRoomInfo,
                 ...converted_listing_SITE, // Spread this first
                 publicDescription: {
                     ...converted_listing.publicDescription,
                     ...converted_listing_SITE.publicDescription,
-                    summary: converted_listingRoomInfo.publicDescription.summary
+                       summary: converted_listingRoomInfo.publicDescription.summary
                 },
                 wixCms: ListingDetails_WIX,
                 calendar: converted_calendar
@@ -632,24 +640,18 @@ export const lodgifyActions = {
             const { default_Lang } = params;
 
             const response = await lodgifyFetchers.fetchListingQuote({ auth, params, default_Lang })
-            if(response === "The minimum stay for this House is 30 days"){
-                return { item: null, error: response, message: response }
-            }
-            
-            if(response === "Select a range of available dates."){
-                return { item: null, error: response, message: response }
-            }
-            if(response === "The arrival date is not valid"){
-                return { item: null, error: response, message: response }
+
+            if (response.error) {
+                throw new Error(response.error)
             }
 
             const QUOTE = new lodgify_listing_quote_converter(response);
             const CONVERTED_QUOTE = QUOTE.convert();
-            
+
             return { item: CONVERTED_QUOTE };
         } catch (error) {
             console.error("Error ACTION - fetching quote data:", error);
-            return { item: null, error: error.message, message: error.status || "Failed to fetch quote data" };
+            throw error
         }
     },
     getListingCurrencies: async ({ internal_ID, params }: actionsParams): Promise<any> => {
@@ -682,7 +684,7 @@ export const lodgifyActions = {
         };
         try {
             const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
-            const response = await lodgifyFetchers.fetchListingCalendar ({ auth: keysObject, params, default_Lang })
+            const response = await lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang })
             return response;
 
         } catch (error) {
@@ -703,31 +705,31 @@ export const lodgifyActions = {
         try {
             const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
 
-            const spread_params = {...params,  pageNum: 1,size: 1000}
-            const listings = await lodgifyFetchers.fetchListings({ auth: keysObject, params:spread_params,default_Lang: "en" })   
+            const spread_params = { ...params, pageNum: 1, size: 1000 }
+            const listings = await lodgifyFetchers.fetchListings({ auth: keysObject, params: spread_params, default_Lang: "en" })
 
             const converted_listings = listings.items
-            .filter((lst: lodgifyListingsObjectTpye) => lst.is_active)
-            .map((listing: lodgifyListingsObjectTpye) =>
-                new lodgify_listings_converter(listing).convert()
-            );
+                .filter((lst: lodgifyListingsObjectTpye) => lst.is_active)
+                .map((listing: lodgifyListingsObjectTpye) =>
+                    new lodgify_listings_converter(listing).convert()
+                );
 
-        // ---------------------------------------------------------
-        // 4) OPTIMIZED: Gather unique city/state/country using a Set
-        // ---------------------------------------------------------
-        const uniqueCitySet = new Set();
-        const cityResults: { city: string; state: string; country: string }[] =
-            [];
-        for (const item of converted_listings) {
-            const { city, state, country } = item.address;
-            const key = `${city}||${state}||${country}`;
-            if (!uniqueCitySet.has(key)) {
-                uniqueCitySet.add(key);
-                cityResults.push({ city, state, country });
+            // ---------------------------------------------------------
+            // 4) OPTIMIZED: Gather unique city/state/country using a Set
+            // ---------------------------------------------------------
+            const uniqueCitySet = new Set();
+            const cityResults: { city: string; state: string; country: string }[] =
+                [];
+            for (const item of converted_listings) {
+                const { city, state, country } = item.address;
+                const key = `${city}||${state}||${country}`;
+                if (!uniqueCitySet.has(key)) {
+                    uniqueCitySet.add(key);
+                    cityResults.push({ city, state, country });
+                }
             }
-        }
-    
-            return {items: cityResults, total: listings.count};
+
+            return { items: cityResults, total: listings.count };
 
         } catch (error) {
             console.error(
@@ -737,5 +739,30 @@ export const lodgifyActions = {
             throw new Error(`Fetching failed: ${error.message}`);
         };
 
-    }
+    },
+    getListingsRateCalendar: async ({ internal_ID, params }: actionsParams): Promise<any> => {
+        const { default_Lang,listingId,roomId } = params;
+        if (!listingId || !roomId) {
+            throw new Error("Missing listingId or roomId");
+        }
+        const keys = await getLodgifyKeys(internal_ID);
+        const { ApiKey, AppKey } = keys.client;
+        if (!ApiKey || !AppKey) {
+            throw new Error("Missing Lodgify API keys");
+        };
+        try {
+            const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
+            const response = await lodgifyFetchers.fetchListingsRatesCalendar({ auth: keysObject, params, default_Lang })
+            const converted_rates = new lodgify_listings_rateCalendar_converter(response).convert();
+            return { item: converted_rates };
+
+        } catch (error) {
+            console.error(
+                "Error - ACTION - fetching Rates Calendar :",
+                error.message
+            );
+            throw new Error(`Fetching failed: ${error.message}`);
+        };
+
+    },
 };

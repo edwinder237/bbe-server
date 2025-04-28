@@ -31,7 +31,7 @@ export default async function getAuth({ internal_ID, needNewToken, integrationTy
             }
 
             if (integrationType === "hostaway") {
-                console.log("skjdjdksjdksdjdj")
+                console.log("hostawattt")
                 console.log(`Client ID: ${internal_ID} - Hostaway Token expired, fetching new token...`);
                 const newToken = await fetchNewHostAwayToken(internal_ID, authKeys);
                 console.log(`Client ID: ${internal_ID} - New Hostaway token fetched successfully.`);

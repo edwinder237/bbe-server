@@ -1,64 +1,44 @@
+// FETCH HANDLE - handles timeout, abort, times functions, 
+
 import { handleFetchParams } from "./types";
 
 export const handleFetch = async ({ fetchUrl, options, action }: handleFetchParams) => {
-    const startTime = Date.now(); // Capture the start time
+  const startTime = Date.now();
+  // Create an AbortController to cancel the fetch if it takes too long
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-    try {
-        const response = await fetch(fetchUrl, options);
+  // Merge the AbortController's signal into the user's options
+  const fetchOptions = { ...options, signal: controller.signal };
 
+  try {
+    const response = await fetch(fetchUrl, fetchOptions);
+    const data = await response.json();
 
-        // Check for 429 status first
-        if (response.status === 429) {
-            // Handle "Too Many Requests"
-            throw new Error("Too Many Requests (429). The rate limit has been exceeded.");
-        }
+    const endTime = Date.now();
+    console.info(
+      `[${new Date().toISOString()}] Success in action '${action}' - Duration: ${endTime - startTime}ms`
+    );
 
-        const data = await response.json();
+    return data;
+    
+  } catch (error: any) {
+    const endTime = Date.now();
+    const duration = endTime - startTime;
 
-        //console.log(data.error.data.errors);
-
-        if (fetchUrl.startsWith("https://checkout.lodgify.com/api/v1/checkout/price?propertyId")) {
-            if (response.status === 400) {
-                return { success: true, data:data.title || response.statusText };
-            }
-        } 
-          
-        // Handle other non-OK statuses
-        if (!response.ok) {
-            throw new Error(`FETCH_HANDLER - failed with status ${data?.status} - ${data?.message}`);
-        }
-// LODGIFY ERRORS
-
-        if (response.status === 400) {
-            throw new Error(`Error ${response.status}: ${data.title || response.statusText}`);
-        }
-
-        //lodgify quote
-        if (response.status === 400) {
-            throw new Error(`Error ${response.status}: ${data.title || response.statusText}`);
-        }
-
-        // Check for HTTP errors
-        if (!response.ok) {
-            if (fetchUrl === "https://booking.guesty.com/api/reservations/quotes") {
-                return data.error.code;
-            } else
-                throw new Error(`Error in HANDLE FETCH UTIL '${action}': ${response.status} ${response.statusText} - message: ${data?.message}`);
-        }
-
-
-        const endTime = Date.now(); // Capture the end time
-        const duration = endTime - startTime; // Calculate duration
-
-        console.info(`[${new Date().toISOString()}] Success in action '${action}' - Duration: ${duration}ms`);
-
-        return { success: true, data };
-    } catch (error) {
-        const endTime = Date.now(); // Capture end time for error logs
-        const duration = endTime - startTime; // Calculate duration
-
-        console.error(`[${new Date().toISOString()}] Fetch error in action '${action}' - Duration: ${duration}ms:`, error.message);
-
-        return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+    if (error.name === "AbortError") {
+      console.error(
+        `[${new Date().toISOString()}] Fetch timeout (>${10_000}ms) in action '${action}' - Duration: ${duration}ms`
+      );
+      throw new Error(`Request timed out after 10 seconds`);
     }
+
+    console.error(
+      `[${new Date().toISOString()}] Fetch error in action '${action}' - Duration: ${duration}ms:`,
+      error.message
+    );
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };

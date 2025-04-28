@@ -39,6 +39,7 @@ import {
 
 } from "../utils/clientConverter";
 import { spread } from "lodash";
+import { th } from "date-fns/locale";
 
 
 const integrationType: integrationTypes = "hostaway";
@@ -56,6 +57,12 @@ interface HostawayApiProp {
     action: string;
     method: "GET" | "POST";
     body?: string;
+}
+
+interface HostawayApiReturn{
+    count: number;
+    limit: number;
+    offset: number;
 }
 
 
@@ -84,19 +91,14 @@ const fetchHostawayData = async ({ endpointUrl, token, action, method, body }: H
     }
 
     const options = getOptionsRequest(action);
-    const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout fetching API from ${action}`)), 20000) // 10-second timeout
-    );
-    try {
-        const fetchPromise = handleFetch({ fetchUrl: endpointUrl, options, action } as handleFetchParams) as Promise<FetchResponse>;
-        const response = await Promise.race([fetchPromise, timeout]);
 
-        if (!response.success) {
-            throw new Error(`Failed to fetch hostaway data from ${action}: ${response.message}`);
-        }
-        return response.data;
+    try {
+        const response = await handleFetch({ fetchUrl: endpointUrl, options, action } as handleFetchParams) as FetchResponse;
+
+        return response;
+
     } catch (error) {
-        console.error(`Error in fetchHostawayData: ${error.message}`);
+        console.error(`Error in HOSTAWAY FETCHER: ${error.message}`);
         throw error;
     }
 
@@ -180,7 +182,11 @@ export const hostawayFetchers: FetchMap = {
         // Only fetch coupon if a coupon value is provided in params.
         if (params.quote?.coupons) {
             const coupon_response = await hostawayFetchers.fetchListingReservationCoupons({ token, params, default_Lang: "en" });
-            couponId = coupon_response.status === "success" ? coupon_response?.result?.reservationCouponId : null;
+            if (coupon_response.status === "success") {
+                couponId = coupon_response?.result?.reservationCouponId;
+            } else {
+                throw new Error(`${coupon_response.message}`);
+            }
         }
 
         const body = JSON.stringify({
@@ -218,7 +224,6 @@ export const hostawayFetchers: FetchMap = {
             endingDate: checkOutDateLocalized
         });
         const response = await fetchHostawayData({ endpointUrl, token, action, method: "POST", body })
-
         return response;
     },
     fetchListingReservation: async ({ token, params }: ApiFetcherParams): Promise<hostawayReservationReturnType> => {
@@ -264,7 +269,6 @@ export const hostawayActions = {
             const token = tokenResponse.token;
 
             const listings = await hostawayFetchers.fetchListings({ token, params, default_Lang: "en" });
-
             // CONVERT LISTINGS TO FRONT END REQUIREMENTS 
             const converted_listings = listings.result.map((listing: hostaway_listings) => new hostaway_listings_converter(listing).convert());
 
@@ -482,7 +486,7 @@ export const hostawayActions = {
                 },
             };
             const converted_quote = new hostaway_listing_quote_converter(spread_quote).convert();
-            return { item: converted_quote };
+            return {item: converted_quote };
         } catch (error: any) {
             // Log error details for production monitoring
             console.error("Error ACTION - in getListingQuote:", error.message);

@@ -9,7 +9,7 @@ export async function fetchNewTokenFromGuesty(authKeys:any): Promise<any> {
       client_secret: authKeys.clientSecret,
       client_id: authKeys.clientID,
     }).toString();
-
+    console.log("Fetching new token from Guesty API");
     const response = await fetch('https://booking.guesty.com/oauth2/token', {
       method: 'POST',
       headers: {
@@ -47,7 +47,7 @@ export async function fetchNewTokenFromHostaway(authKeys:any): Promise<any> {
       client_secret: authKeys.clientSecret,
       client_id: authKeys.clientID,
     }).toString();
-
+console.log("Fetching new token from Hostaway API");
     const response = await fetch('https://api.hostaway.com/v1/accessTokens', {
       method: 'POST',
       headers: {
