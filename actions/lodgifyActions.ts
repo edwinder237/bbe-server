@@ -224,6 +224,19 @@ export const lodgifyFetchers: FetchMap = {
         return response;
 
     },
+    fetchLocation: async ({ auth: lodgifyAuth, params: { pageNum } }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
+        const endpointUrl = `https://api.lodgify.com/v2/properties?includeCount=true&includeInOut=true&page=${pageNum}&size=1000`;
+        const response = await fetchLodgifyData({
+            endpointUrl,
+            lodgifyAuth,
+            action: "fetchLodgifyListings",
+            method: "GET",
+            default_Lang: "en",
+        });
+
+        return response;
+
+    },
     fetListingsSearch: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
         const { search, default_Lang } = params || {};
         const { checkInDateLocalized, checkOutDateLocalized } = search || {};
@@ -706,7 +719,7 @@ export const lodgifyActions = {
             const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
 
             const spread_params = { ...params, pageNum: 1, size: 1000 }
-            const listings = await lodgifyFetchers.fetchListings({ auth: keysObject, params: spread_params, default_Lang: "en" })
+            const listings = await lodgifyFetchers.fetchLocation({ auth: keysObject, params: spread_params, default_Lang: "en" })
 
             const converted_listings = listings.items
                 .filter((lst: lodgifyListingsObjectTpye) => lst.is_active)
@@ -728,7 +741,7 @@ export const lodgifyActions = {
                     cityResults.push({ city, state, country });
                 }
             }
-
+          
             return { items: cityResults, total: listings.count };
 
         } catch (error) {
