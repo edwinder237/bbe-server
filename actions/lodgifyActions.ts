@@ -224,7 +224,7 @@ export const lodgifyFetchers: FetchMap = {
         return response;
 
     },
-    fetchLocation: async ({ auth: lodgifyAuth, params: { pageNum } }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
+    fetchAllListings: async ({ auth: lodgifyAuth, params: { pageNum } }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
         const endpointUrl = `https://api.lodgify.com/v2/properties?includeCount=true&includeInOut=true&page=${pageNum}&size=1000`;
         const response = await fetchLodgifyData({
             endpointUrl,
@@ -423,6 +423,120 @@ export const lodgifyActions = {
             throw error;
         }
     },
+    getAllListings: async ({ internal_ID, params, wix_params, auth, }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
+        const isWixCMSRequested = wix_params?.wix_req;
+        const isLodgifySiteRequested = !!params?.lodgifySite?.id;
+        const { default_Lang } = params;
+
+        /**
+         * NOTE: This function conditionally fetches API keys either from the `auth` parameter
+         * (if provided) or by calling `getLodgifyKeys` using `internal_ID`.
+         */
+        let apiKey: string;
+        let appKey: string;
+        if (auth) {
+            // If `auth` is provided, extract keys directly from it
+            apiKey = auth.apiKey;
+            appKey = auth.appKey;
+        } else {
+            // If `auth` is not provided, fetch keys from Lodgify using `internal_ID`
+            const keys = await getLodgifyKeys(internal_ID);
+            // Extract `ApiKey` and `AppKey` from the fetched keys
+            apiKey = keys.client.ApiKey;
+            appKey = keys.client.AppKey;
+        }
+
+        // Validate that both `apiKey` and `appKey` are available
+        if (!apiKey || !appKey) {
+            throw new Error("Missing Lodgify API keys");
+        }
+
+        // Create the keys object
+        const keysObject: lodgifyAuthParams = { apiKey, appKey };
+
+        // 1) Always fetch Lodgify listings
+        // 2) Conditionally fetch Lodgify BETA listings (or fallback with null)
+        // 3) Conditionally fetch WixCMS details (or fallback with { item: {} })
+        try {
+            //Check if wixCms is requested
+            const isWixCMSRequested = wix_params?.wix_req;
+
+            //Check if lodgifyStie is requested
+            const isLodgifySiteRequested = !!params?.lodgifySite?.id;
+
+            // Always return all listings
+
+            const promises = [
+                lodgifyFetchers.fetchAllListings({ internal_ID, params, auth: keysObject, default_Lang }),
+                isLodgifySiteRequested
+                    ? lodgifySiteFetchers.fetchSiteListings({ auth: keysObject, params, default_Lang })
+                    : Promise.resolve(null), // fallback if lodgify site is not requested
+                isWixCMSRequested
+                    ? wixCmsFetchers.fetchListings({ wix_params })
+                    : Promise.resolve({ items: [] }), // Fallback if wixCms is not requested
+            ];
+
+            // Conditional Fetching return
+            const [listings, lodfifySite, wixCmsData] = await Promise.all(
+                promises
+            );
+
+            // ---------------------------------------------------------
+            // 1) OPTIMIZED: Build a map for Wix CMS items to allow O(1) lookups
+            // ---------------------------------------------------------
+            let cmsMap = new Map();
+            if (isWixCMSRequested) {
+                for (const cmsItem of wixCmsData?.items || []) {
+                    cmsMap.set(cmsItem.id, cmsItem);
+                }
+            }
+            let lodgifySiteMap = new Map();
+            if (isLodgifySiteRequested) {
+                for (const site of lodfifySite?.items || []) {
+                    lodgifySiteMap.set(site.property_id, site);
+                }
+            }
+
+            // ---------------------------------------------------------
+            // 3) Convert active Lodgify listings
+            // ---------------------------------------------------------
+            const converted_listings = listings.items
+                .filter((lst: lodgifyListingsObjectTpye) => lst.is_active)
+                .map((listing: lodgifyListingsObjectTpye) =>
+                    new lodgify_listings_converter(listing).convert()
+                );
+
+            // ---------------------------------------------------------
+            // 5) Decide if we attach Lodgify Site Data "listingExtraData"
+            // ---------------------------------------------------------
+            const lodgifySiteListingsData = isLodgifySiteRequested ? lodfifySite?.items : null;
+
+            // ---------------------------------------------------------
+            // 6) SPRED ADDITIONAL DATA TO ITEM OBJECT
+            // ---------------------------------------------------------
+
+            const spread_converted_listings = converted_listings.map((listing: CLIENT_LISTINGS_OBJECT): CLIENT_LISTINGS_OBJECT => {
+                const foundWixCmsItem = cmsMap.get(parseInt(listing.id));
+                const foundlodgifySite = lodgifySiteMap.get(parseInt(listing.id));
+
+                return {
+                    ...listing,
+                    ...(foundlodgifySite && { lodgifySiteApi: foundlodgifySite }),
+                    ...(foundWixCmsItem && { wixCmsApi: foundWixCmsItem })
+                }
+
+            });
+
+            return {
+                total: listings.count,
+                items: spread_converted_listings,
+            };
+        } catch (error: any) {
+            // Log error details for production monitoring
+            console.error("Error ACTION - fetching lodgifyListings:", error.message);
+            throw error;
+        }
+    },
     getListingSearch: async ({ internal_ID, params, wix_params }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
         const keys = await getLodgifyKeys(internal_ID);
         const { ApiKey, AppKey } = keys.client;
@@ -448,12 +562,12 @@ export const lodgifyActions = {
             const getSearchResults = async (auth): Promise<any> => {
                 // Parallelize data fetching where possible
                 const [allListings, availabilities] = await Promise.all([
-                    lodgifyActions.getListings({ internal_ID, params: { ...params, lodgifySite: paramsProps, search: searchParams }, wix_params, auth }),
+                    lodgifyActions.getAllListings({ internal_ID, params: { ...params, lodgifySite: paramsProps, search: searchParams }, wix_params, auth }),
                     validDates
                         ? lodgifyFetchers.fetListingsSearch({ auth, params, default_Lang })
                         : Promise.resolve([]) // No availabilities needed if dates are invalid
                 ]);
-   
+ 
                 // Early exits for invalid or empty listings
                 if (!allListings.items?.length) {
                     return {
@@ -466,18 +580,27 @@ export const lodgifyActions = {
                 // Initialize filters
                 let filteredListings = allListings.items;
                 const appliedFilters: string[] = [];
-
+    
                 // Location Filter
                 if (search.location?.city) {
                     const city = search.location.city;
-
+                    
                     filteredListings = filteredListings.filter(
                         (listing: any) =>
                             listing.address.city === city || listing.moreinfo?.city_name === city
                     );
                     appliedFilters.push(`location: ${city}`);
                 }
-
+                if (search.location?.state) {
+                    const state = search.location.state;
+                    
+                    filteredListings = filteredListings.filter(
+                        (listing: any) =>
+                            listing.address.state === state || listing.moreinfo?.city_name === state
+                    );
+                    appliedFilters.push(`location: ${state}`);
+                }
+                
                 // Date Filter
                 if (validDates) {
                     const { checkInDateLocalized, checkOutDateLocalized } = params?.search || {};
@@ -506,7 +629,7 @@ export const lodgifyActions = {
                         );
 
                         appliedFilters.push(`date range: ${START} to ${END}`);
-
+             
                         // If no listings are available for the selected date range, return an error
                         if (filteredListings.length === 0) {
                             return {
@@ -556,7 +679,7 @@ export const lodgifyActions = {
 
                 ) {
                     return {
-                        total: allListings.total,
+                        total: filteredListings.length,
                         items: filteredListings,
                         message,
                     };
@@ -719,7 +842,7 @@ export const lodgifyActions = {
             const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
 
             const spread_params = { ...params, pageNum: 1, size: 1000 }
-            const listings = await lodgifyFetchers.fetchLocation({ auth: keysObject, params: spread_params, default_Lang: "en" })
+            const listings = await lodgifyFetchers.fetchAllListings({ auth: keysObject, params: spread_params, default_Lang: "en" })
 
             const converted_listings = listings.items
                 .filter((lst: lodgifyListingsObjectTpye) => lst.is_active)
