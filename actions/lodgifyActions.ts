@@ -562,6 +562,7 @@ export const lodgifyActions = {
             const getSearchResults = async (auth): Promise<any> => {
                 // Parallelize data fetching where possible
                 const [allListings, availabilities] = await Promise.all([
+                    //getAllListing allows search on all listing to filter location etc. getListing is use on initial fetch for pagination.
                     lodgifyActions.getAllListings({ internal_ID, params: { ...params, lodgifySite: paramsProps, search: searchParams }, wix_params, auth }),
                     validDates
                         ? lodgifyFetchers.fetListingsSearch({ auth, params, default_Lang })

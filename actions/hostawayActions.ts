@@ -114,6 +114,15 @@ export const hostawayFetchers: FetchMap = {
 
 
     },
+    fetchListingsLocations: async ({ token, params }: ApiFetcherParams): Promise<hostawayListingsReturnType> => {
+        const { offset, limit } = params
+        const endpointUrl = `https://api.hostaway.com/v1/listings?limit=${limit}&offset=${offset}&sortOrder=&city=&match=&country=&isSyncig=&contactName=&propertyTypeId=`;
+        const action = "fetchHostawayLoacations";
+        const response = await fetchHostawayData({ endpointUrl, token, action, method: "GET" })
+        return response;
+
+
+    },
     fetchListingsSearch: async ({ token, queryParams }: ApiFetcherParams) => {
         const endpointUrl = `https://api.hostaway.com/v1/listings?${queryParams}`;
         const action = "fetchHostawayListingsSearch";
@@ -292,7 +301,7 @@ export const hostawayActions = {
             const token = tokenResponse.token;
 
             const spread_params = { ...params, limit: 1000, offset: 0 }
-            const listings = await hostawayFetchers.fetchListings({ token, params:spread_params, default_Lang: "en" });
+            const listings = await hostawayFetchers.fetchListingsLocations({ token, params:spread_params, default_Lang: "en" });
             // CONVERT LISTINGS TO FRONT END REQUIREMENTS
             const converted_listings = listings.result.map((listing: hostaway_listings) => new hostaway_listings_converter(listing).convert());
            
@@ -327,6 +336,7 @@ export const hostawayActions = {
         }
         const { guestsCount, checkInDateLocalized, checkOutDateLocalized, location } = search;
         // Construct base query with defaults
+        //console.log("Searching..",params)
         const queryParams = new URLSearchParams({
             limit: params.limit.toString(),
             offset: params.offset.toString(),
