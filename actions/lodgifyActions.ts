@@ -1,5 +1,6 @@
 import { handleFetch } from "../utils/handleFetching";
 import dayjs from "dayjs"
+import { filterUnavailableDates } from "../utils/filterUnavailableDates";
 import { getLodgifyKeys } from "../utils/tokenServiceCaching";
 import { wixCmsFetchers } from "./wixCmsActions";
 import {
@@ -107,12 +108,12 @@ const fetchLodgifyData = async ({ endpointUrl, lodgifyAuth, action, method, defa
 
     try {
         const response = await handleFetch({ fetchUrl: endpointUrl, options, action }) as LodgifyApiReturnType;
-        if (response.status === 400){
+        if (response.status === 400) {
             console.warn(`Error: ${response.title || response.detail}`)
-            throw new Error (`${response.title || response.detail}`)
+            throw new Error(`${response.title || response.detail}`)
         }
 
-            return response
+        return response
 
     } catch (error) {
         console.error(`Error LODGIFY FETCHER: ${error.message}`);
@@ -148,7 +149,7 @@ const fetchLodgifySiteData = async ({ endpointUrl, method, lodgifySite, action, 
     };
 
     try {
-        const response = await handleFetch({fetchUrl: endpointUrl,options,action,}) as FetchResponse;
+        const response = await handleFetch({ fetchUrl: endpointUrl, options, action, }) as FetchResponse;
 
         if (!response.success) {
             throw new Error(
@@ -295,7 +296,7 @@ export const lodgifyFetchers: FetchMap = {
         return response
     },
     fetchListingsRatesCalendar: async ({ auth, params }) => {
-        const { default_Lang, availabilities,listingId,roomId } = params;
+        const { default_Lang, availabilities, listingId, roomId } = params;
         const { fromDate, toDate } = availabilities;
 
         const endpointUrl = `https://api.lodgify.com/v2/rates/calendar?RoomTypeId=${roomId}&HouseId=${listingId}&StartDate=${fromDate}&EndDate=${toDate}`;;
@@ -568,7 +569,7 @@ export const lodgifyActions = {
                         ? lodgifyFetchers.fetListingsSearch({ auth, params, default_Lang })
                         : Promise.resolve([]) // No availabilities needed if dates are invalid
                 ]);
- 
+
                 // Early exits for invalid or empty listings
                 if (!allListings.items?.length) {
                     return {
@@ -581,11 +582,11 @@ export const lodgifyActions = {
                 // Initialize filters
                 let filteredListings = allListings.items;
                 const appliedFilters: string[] = [];
-    
+
                 // Location Filter
                 if (search.location?.city) {
                     const city = search.location.city;
-                    
+
                     filteredListings = filteredListings.filter(
                         (listing: any) =>
                             listing.address.city === city || listing.moreinfo?.city_name === city
@@ -594,14 +595,14 @@ export const lodgifyActions = {
                 }
                 if (search.location?.state) {
                     const state = search.location.state;
-                    
+
                     filteredListings = filteredListings.filter(
                         (listing: any) =>
                             listing.address.state === state || listing.moreinfo?.city_name === state
                     );
                     appliedFilters.push(`location: ${state}`);
                 }
-                
+
                 // Date Filter
                 if (validDates) {
                     const { checkInDateLocalized, checkOutDateLocalized } = params?.search || {};
@@ -630,7 +631,7 @@ export const lodgifyActions = {
                         );
 
                         appliedFilters.push(`date range: ${START} to ${END}`);
-             
+
                         // If no listings are available for the selected date range, return an error
                         if (filteredListings.length === 0) {
                             return {
@@ -725,7 +726,7 @@ export const lodgifyActions = {
                 lodgifySiteFetchers.fetchSiteListingDetails({ auth: keysObject, params, default_Lang }),
                 lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang })
             ]);
-            
+
             //Fetch roomInfo to access listing photos - ONLY SUPPORT ONE ROOM FOR NOW
             const RoomId = listingDetails?.rooms[0]?.id.toString();
             // SPREAD to params 
@@ -744,23 +745,31 @@ export const lodgifyActions = {
             const converted_listing_SITE = new lodgify_listing_details_SITE_converter(listingDetails_SITE as unknown as Lodgify_Listing_Details_SITE_ObjectType).convert();
 
             //ROOM INFO 
-              const converted_listingRoomInfo = new lodgify_listing_roomInfo_converter(roomInfo as lodgifyListingRoomInfoObjectType).convert();
+            const converted_listingRoomInfo = new lodgify_listing_roomInfo_converter(roomInfo as lodgifyListingRoomInfoObjectType).convert();
             //CALENDAR 
             const converted_calendar = new lodgify_listing_calendar_converter(calendar as lodgifyListingCalendarObectType[]).convert();
-        
+
+            const converted_calendar_MinDays = filterUnavailableDates(converted_calendar)
+          
+            // Filter out dates with min stay only for the specific internal_ID
+            // this is used when client request a min bookable dates on their calendar
+            const unavailableDates = internal_ID !== "f9ae756d-be1b-4593-87aa-c245416e4ae7" ? (converted_calendar) :
+                (converted_calendar_MinDays);
+
+
             //SPREAD ADDITIONAL DATA TO ITEM 
 
             const spread_converted_listing = {
                 ...converted_listing,
-                  ...converted_listingRoomInfo,
+                ...converted_listingRoomInfo,
                 ...converted_listing_SITE, // Spread this first
                 publicDescription: {
                     ...converted_listing.publicDescription,
                     ...converted_listing_SITE.publicDescription,
-                       summary: converted_listingRoomInfo.publicDescription.summary
+                    summary: converted_listingRoomInfo.publicDescription.summary
                 },
                 wixCms: ListingDetails_WIX,
-                calendar: converted_calendar
+                calendar: unavailableDates
             };
 
             return { item: spread_converted_listing };
@@ -865,7 +874,7 @@ export const lodgifyActions = {
                     cityResults.push({ city, state, country });
                 }
             }
-          
+
             return { items: cityResults, total: listings.count };
 
         } catch (error) {
@@ -878,7 +887,7 @@ export const lodgifyActions = {
 
     },
     getListingsRateCalendar: async ({ internal_ID, params }: actionsParams): Promise<any> => {
-        const { default_Lang,listingId,roomId } = params;
+        const { default_Lang, listingId, roomId } = params;
         if (!listingId || !roomId) {
             throw new Error("Missing listingId or roomId");
         }
@@ -891,6 +900,7 @@ export const lodgifyActions = {
             const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
             const response = await lodgifyFetchers.fetchListingsRatesCalendar({ auth: keysObject, params, default_Lang })
             const converted_rates = new lodgify_listings_rateCalendar_converter(response).convert();
+
             return { item: converted_rates };
 
         } catch (error) {
