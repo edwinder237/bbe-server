@@ -749,7 +749,7 @@ export const lodgifyActions = {
             //CALENDAR 
             const converted_calendar = new lodgify_listing_calendar_converter(calendar as lodgifyListingCalendarObectType[]).convert();
 
-            const converted_calendar_MinDays = filterUnavailableDates(converted_calendar)
+            const converted_calendar_MinDays = filterUnavailableDates(converted_calendar) ;
           
             // Filter out dates with min stay only for the specific internal_ID
             // this is used when client request a min bookable dates on their calendar

@@ -299,7 +299,7 @@ export type CLIENT_LISTING_QUOTE_RETURN = {
 export type CLIENT_LISTING_CALENDAR_OBJECT = {
 };
 export type CLIENT_LISTING_CALENDAR_RETURN = {
-  items: Date[];
+  items: Date[] | string[]; // format: ["2025-01-04
   error?: string;
   message?: string;
 };
