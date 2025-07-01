@@ -7,26 +7,27 @@ export const corsMiddleware = (req: VercelRequest, res: VercelResponse) => {
   'https://bbe-server-edwinder237s-projects.vercel.app',
   'https://beyondbooking.vercel.app',
   'https://dc2198d9-0787-417c-8d12-581c46d1faed.dev.wix-code.com',
-  'https://v0-admin-app-c9qugobpiap.vercel.app' ]; //wix server DEV
+  'https://v0-admin-app-c9qugobpiap.vercel.app' ];
   
-  
-  const origin = req.headers.origin; // May be undefined if not present
+  const origin = req.headers.origin;
 
-  // Check if the request's origin is allowed
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS,DELETE,PUT');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
+    // 🔥 ADD THESE AUTHENTICATION HEADERS:
+    res.setHeader('Access-Control-Allow-Headers', 
+      'Content-Type, Authorization, X-Clerk-Auth-Token, X-Clerk-Auth-Reason, X-Clerk-Auth-Message'
+    );
+    // 🔥 ALLOW CREDENTIALS FOR AUTH:
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else {
-    // Optionally handle the case where the origin is not allowed
-    console.warn(`Origin not allowed:', ${origin} host:${req?.headers?.host}`);
+    console.warn(`Origin not allowed: ${origin} host:${req?.headers?.host}`);
   }
 
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.status(200).end();
-    return true; // Indicate that preflight was handled
+    return true;
   }
 
-  return false; // Indicate that further processing can continue
+  return false;
 };

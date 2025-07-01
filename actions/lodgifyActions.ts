@@ -748,9 +748,7 @@ export const lodgifyActions = {
             const converted_listingRoomInfo = new lodgify_listing_roomInfo_converter(roomInfo as lodgifyListingRoomInfoObjectType).convert();
             //CALENDAR 
             const converted_calendar = new lodgify_listing_calendar_converter(calendar as lodgifyListingCalendarObectType[]).convert();
-            if (internal_ID === "60ec32ed-8a2c-4a9b-aae4-799793a2e237") {
-                console.log("response", converted_calendar);
-            }
+
             const converted_calendar_MinDays = filterUnavailableDates(converted_calendar) ;
           
             // Filter out dates with min stay only for the specific internal_ID
