@@ -747,16 +747,16 @@ export const lodgifyActions = {
             //ROOM INFO 
             const converted_listingRoomInfo = new lodgify_listing_roomInfo_converter(roomInfo as lodgifyListingRoomInfoObjectType).convert();
             //CALENDAR 
-            const converted_calendar = new lodgify_listing_calendar_converter(calendar as lodgifyListingCalendarObectType[]).convert();
 
-            const converted_calendar_MinDays = filterUnavailableDates(converted_calendar) ;
-          
+            const converted_calendar = new lodgify_listing_calendar_converter(calendar as lodgifyListingCalendarObectType[]).convert();
+            const converted_calendar_MinDays = filterUnavailableDates(converted_calendar);
+
             // Filter out dates with min stay only for the specific internal_ID
             // this is used when client request a min bookable dates on their calendar
-            const unavailableDates = internal_ID !== "f9ae756d-be1b-4593-87aa-c245416e4ae7" ? (converted_calendar) :
-                (converted_calendar_MinDays);
-
-
+            // const unavailableDates = internal_ID !== "f9ae756d-be1b-4593-87aa-c245416e4ae7" ? (converted_calendar) :
+            // (converted_calendar_MinDays);
+            const unavailableDates =  converted_calendar;
+                
             //SPREAD ADDITIONAL DATA TO ITEM 
 
             const spread_converted_listing = {
