@@ -90,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     else if (req.method === 'POST') {
       console.log("req.method : POST", req.query);
-      const { email, name, integrationId, apikey } = req.body;
+      const { email, name, integrationId, apikey, clientID, clientSecret } = req.body;
       console.log(`[${new Date().toISOString()}] Creating new client:`, { email, name, integrationId });
 
       // Validate required fields
@@ -111,6 +111,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               integrationId,
               cuid: crypto.randomUUID(),
               ApiKey: apikey,
+              clientID: clientID,
+              clientSecret: clientSecret,
               AppKey: "6Y8NfnB4VT8rsnPaPoS3FnuutAqwrAAIRRooqIgXEK1t7WelINdPJL4GLnUbwj4j6HUzB3gJp/7FT9/v",
               channelID: '',
             }
@@ -173,7 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     else if (req.method === 'PUT') {
       const { clientCuid, data } = req.body;
-      const { name, email, ApiKey, preferences,status } = data;
+      const { name, email, ApiKey, clientID, clientSecret, preferences, status } = data;
       console.log("req.method : PUT", status);
 
       console.log(`[${new Date().toISOString()}] Updating client:`, { clientCuid, name, email });
@@ -196,6 +198,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ...(name && { name }),
               ...(email && { email }),
               ...(ApiKey && { ApiKey }),
+              ...(clientID && { clientID }),
+              ...(clientSecret && { clientSecret }),
               ...(status && { status }),
               ...(preferences && { preferences })
             }
