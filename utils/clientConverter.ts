@@ -720,6 +720,9 @@ export class guesty_listing_detail_Converter {
       thingsToknow: {
         checkInTime: this.input?.defaultCheckInTime,
         checkOutTime: this.input?.defaultCheckOutTime,
+        houseRules: this.input?.publicDescription?.houseRules,
+        specialNote: this.input?.publicDescription.notes,
+        summary:this.input?.publicDescription?.summary
       }
     };
   }

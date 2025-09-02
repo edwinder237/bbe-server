@@ -130,6 +130,7 @@ export type guestylistingDetailsObjectType = {
     };
     tags: string[];
     parentId: string | null;
+
 };
 export type guestyListingDetailsReturnType = guestylistingDetailsObjectType;
 ;

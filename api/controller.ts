@@ -25,8 +25,11 @@ const actions: ActionsMap = {
         return wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params });
     },
     //////////////GUESTY ACTIONS////////
-    getGuesty_Listings: async ({ internal_ID }: actionsParams) => {
-        return guestyActions.getlistings({ internal_ID })
+    getGuesty_Listings: async ({ internal_ID,params }: actionsParams) => {
+        return guestyActions.getlistings({ internal_ID,params })
+    },
+    getGuesty_NextPage: async ({ internal_ID,params }: actionsParams) => {
+        return guestyActions.getlistingsNextPage({ internal_ID,params })
     },
     getGuesty_ListingDetails: async ({ internal_ID, params }) => {
         return guestyActions.getListingDetails({ internal_ID, params })

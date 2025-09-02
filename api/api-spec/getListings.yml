@@ -1,0 +1,528 @@
+openapi: 3.1.0
+info:
+  title: Beyond Booking Engine (BBE) API
+  version: "1.0.0"
+  description: |
+    Unified interface over Lodgify, Guesty, and Hostaway. Frontend sends one contract;
+    middleware normalizes integration differences.
+
+servers:
+  - url: http://bbe-server.vercel.app/api/controller
+    description: Production
+  - url: http://localhost:8080/api/v2/listings
+    description: Staging
+
+tags:
+  - name: Listings
+    description: Search and retrieval of listings
+  - name: Integrations
+    description: |
+      Information about external booking system integrations supported by the BBE API.
+      Current supported integrations are:
+        - Lodgify
+        - Guesty
+        - Hostaway
+      These integrations provide listing data, availability, and booking capabilities.
+
+security:
+  - bearerAuth: [not implemented yet]
+
+paths:
+  /listings/search:
+    post:
+      operationId: searchListings
+      tags: [Listings]
+      summary: Search listings (unified contract)
+      description: |
+        Returns listings from the selected integration. Results are always merged by the backend.
+
+        **Authentication**
+        - `accessKey` is **mandatory** in the request body and must be a UUID.
+
+        **Integration selection**
+        - Use `integrationConfig.integration` to choose one of: `lodgify | guesty | hostaway`.
+
+        **Pagination defaults**
+        - If `pagination` is **omitted**, the server applies:
+          - `page = 1`
+          - `pageSize = integration minPageSize` (see `/integrations/capabilities`)
+          - `includeTotals = true`
+
+        **Lodgify-specific requirements**
+        - When `integrationConfig.integration = lodgify`, you **must** include:
+          - `integrationConfig.lodgify` object with `siteUrl` and `siteId`
+          - `locale.lang` (ISO 639-1, e.g. `"en"`, `"fr"`)
+
+        **Guesty limitation**
+        - Guesty enforces a maximum of **100 listings in total** across all pages for a single search.
+
+        **Wix add-on**
+        - `integrationConfig.wix_params` is **optional** for all integrations and can be used to enrich results
+          (e.g., fetch listing photos from Wix CMS).
+
+        **Totals & matched count**
+        - When a `query` is provided and `includeTotals=true`, the response includes:
+          - `pagination.totalItems` — total number of matches
+          - `matched` — same value as `pagination.totalItems` (explicit count of matches for the given filters)
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/XRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+            examples:
+              lodgify_with_wix:
+                summary: Lodgify request (requires locale.lang + lodgify; Wix optional)
+                value:
+                  accessKey: "66945d50-54fc-45ea-9f53-6e2395f28c21"
+                  query:
+                    location: { city: "Nice", state: null, country: "FR" }
+                    guests: 2
+                    startDate: "2025-09-10"
+                    endDate: "2025-09-15"
+                  # pagination omitted -> server defaults (page=1, pageSize=integration min, includeTotals=true)
+                  locale: { lang: "fr", currency: "EUR" }
+                  integrationConfig:
+                    integration: "lodgify"
+                    lodgify:
+                      siteUrl: "https://chaletsduplateaudeshautesgorges.lodgify.com"
+                      siteId: "508601"
+                    wix_params:
+                      siteURL: "https://www.chaletsduplateaudeshautesgorges.com"
+              guesty_minimal:
+                summary: Guesty request (pagination omitted to use defaults)
+                value:
+                  accessKey: "66945d50-54fc-45ea-9f53-6e2395f28c21"
+                  query:
+                    guests: 4
+                  # pagination omitted -> page=1, pageSize=9 (guesty min), includeTotals=true
+                  locale: { currency: "USD" }
+                  integrationConfig:
+                    integration: "guesty"
+              hostaway_with_wix:
+                summary: Hostaway request with explicit pagination and Wix enrichment (optional)
+                value:
+                  accessKey: "66945d50-54fc-45ea-9f53-6e2395f28c21"
+                  query:
+                    location: { city: "Paris", state: null, country: "FR" }
+                  pagination: { page: 1, pageSize: 20, includeTotals: true }
+                  locale: { lang: "fr", currency: "EUR" }
+                  integrationConfig:
+                    integration: "hostaway"
+                    wix_params:
+                      siteURL: "https://www.example-wix-site.com"
+      responses:
+        "200":
+          description: Listings search results (merged shape)
+          headers:
+            X-API-Version: { schema: { type: string } }
+            X-Request-Id: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponseMerged"
+              examples:
+                mergedOk:
+                  value:
+                    items:
+                      - id: "lodgify:12345"
+                        integration: "lodgify"
+                        integrationId: "12345"
+                        title: "Sunny 2BR Near Beach"
+                        price: { amount: 180, currency: EUR }
+                    pagination:
+                      page: 1
+                      pageSize: 12
+                      totalItems: 395
+                      totalPages: 33
+                    matched: 395
+                    trace: { requestId: "c7f..." }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimit"
+        "502":
+          $ref: "#/components/responses/IntegrationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+
+  /integrations/capabilities:
+    get:
+      operationId: listIntegrationCapabilities
+      tags: [Integrations]
+      summary: List integration capabilities and limits
+      description: |
+        Returns the current capabilities for each integration. Use this to adapt client behavior
+        (e.g., honor Guesty's 100-listing cap without hardcoding).
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: Capabilities per integration
+          headers:
+            X-API-Version: { schema: { type: string } }
+            X-Request-Id: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationsCapabilitiesResponse"
+              examples:
+                ok:
+                  value:
+                    integrations:
+                      - name: lodgify
+                        pagination: offset
+                        minPageSize: 12
+                        maxPageSize: 100
+                        supportsTotals: true
+                        totalListingsLimit: null
+                        notes: "Language required in locale.lang"
+                      - name: guesty
+                        pagination: cursor
+                        minPageSize: 9
+                        maxPageSize: 100
+                        supportsTotals: false
+                        totalListingsLimit: 100
+                        notes: "Max 100 listings total across all pages"
+                      - name: hostaway
+                        pagination: offset
+                        minPageSize: 12
+                        maxPageSize: 100
+                        supportsTotals: true
+                        totalListingsLimit: null
+                        notes: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimit"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      schema: { type: string, maxLength: 128 }
+    XRequestId:
+      name: X-Request-Id
+      in: header
+      schema: { type: string, maxLength: 128 }
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            invalid_access_key_format:
+              value:
+                error:
+                  code: BAD_REQUEST
+                  message: "accessKey must be a valid UUID"
+                  integration: null
+                trace: { requestId: "r0" }
+            missing_lodgify_block:
+              value:
+                error:
+                  code: BAD_REQUEST
+                  message: "integrationConfig.lodgify is required when integration=lodgify"
+                  integration: lodgify
+                trace: { requestId: "r1" }
+            missing_locale_lang_for_lodgify:
+              value:
+                error:
+                  code: BAD_REQUEST
+                  message: "locale.lang is required when integration=lodgify"
+                  integration: lodgify
+                trace: { requestId: "r2" }
+            invalid_wix_params_url:
+              value:
+                error:
+                  code: BAD_REQUEST
+                  message: "integrationConfig.wix_params.siteURL must be a valid URI"
+                  integration: null
+                trace: { requestId: "r3" }
+            guesty_total_limit_exceeded:
+              value:
+                error:
+                  code: BAD_REQUEST
+                  message: "Guesty integration supports a maximum of 100 listings total"
+                  integration: guesty
+                trace: { requestId: "r5" }
+            missing_location_fields:
+              value:
+                error:
+                  code: BAD_REQUEST
+                  message: "If location is provided, both city and country are required"
+                  integration: null
+                trace: { requestId: "r6" }
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            invalid_or_expired_access_key:
+              value:
+                error:
+                  code: AUTH
+                  message: "Invalid or expired accessKey"
+                  integration: null
+                trace: { requestId: "u1" }
+    Forbidden:
+      description: Not enough permissions
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Conflict:
+      description: Idempotency conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    RateLimit:
+      description: Rate limited
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    IntegrationError:
+      description: Upstream integration error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    ServiceUnavailable:
+      description: Service unavailable
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    GatewayTimeout:
+      description: Upstream timeout
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  schemas:
+    # === Requests ===
+    SearchRequest:
+      type: object
+      required: [accessKey, integrationConfig]   # pagination is optional
+      properties:
+        accessKey:
+          type: string
+          format: uuid
+          minLength: 36
+          maxLength: 36
+          pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          example: "66945d50-54fc-45ea-9f53-6e2395f28c21"
+        query:
+          $ref: "#/components/schemas/ListingsQuery"
+        pagination:
+          $ref: "#/components/schemas/PaginationInput"
+          description: |
+            Optional. If omitted, the server applies defaults:
+            - page = 1
+            - pageSize = integration minPageSize (see /integrations/capabilities)
+            - includeTotals = true
+        sort:
+          $ref: "#/components/schemas/Sort"
+        locale:
+          $ref: "#/components/schemas/Locale"
+        features:
+          $ref: "#/components/schemas/Features"
+        integrationConfig:
+          $ref: "#/components/schemas/IntegrationConfig"
+      allOf:
+        - if:
+            properties:
+              integrationConfig:
+                properties:
+                  integration:
+                    const: lodgify
+          then:
+            required: [locale]
+            properties:
+              integrationConfig:
+                required: [lodgify]
+              locale:
+                required: [lang]
+
+    IntegrationConfig:
+      type: object
+      required: [integration]
+      properties:
+        integration:
+          type: string
+          enum: [lodgify, guesty, hostaway]
+        lodgify:
+          type: object
+          properties:
+            siteUrl: { type: string, format: uri }
+            siteId: { type: string }
+          required: [siteUrl, siteId]
+        wix_params:
+          type: object
+          properties:
+            siteURL: { type: string, format: uri }
+          required: [siteURL]
+
+    ListingsQuery:
+      type: object
+      properties:
+        location:
+          type: object
+          description: Structured location filter
+          properties:
+            city:
+              type: string
+              description: City name (e.g., "Nice")
+            state:
+              type: [string, "null"]
+              description: State/Province/Region code or name (e.g., "CA", "QC")
+            country:
+              type: string
+              description: ISO 3166-1 alpha-2 or alpha-3 code (e.g., "FR", "CAN")
+          additionalProperties: false
+        guests:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Number of guests (defaults to 1 if not provided)
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+      additionalProperties: false
+      allOf:
+        - if:
+            properties:
+              location: {}
+          then:
+            properties:
+              location:
+                required: [city, country]
+
+    PaginationInput:
+      type: object
+      required: [page, pageSize]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        pageSize:
+          type: integer
+          minimum: 9
+          maximum: 100
+          description: |
+            Number of items per page. If `pagination` is omitted, defaults to the integration's `minPageSize`
+            (see `/integrations/capabilities`).
+        includeTotals:
+          type: boolean
+          default: true
+
+    Sort:
+      type: object
+      properties:
+        field: { type: string, enum: [price, title, createdAt, random] }
+        direction: { type: string, enum: [asc, desc] }
+      additionalProperties: false
+
+    Locale:
+      type: object
+      description: Localization preferences (lang required for Lodgify).
+      properties:
+        lang:
+          type: string
+          description: ISO 639-1 language code (e.g., "en", "fr")
+        currency:
+          type: string
+          description: ISO 4217 currency code (e.g., "EUR")
+      additionalProperties: false
+
+    SearchResponseMerged:
+      type: object
+      required: [items, pagination]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Listing" }
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+        matched:
+          type: integer
+          description: |
+            Total number of items matching the supplied search filters across all pages.
+            Present when a `query` is provided and `includeTotals=true`. Equal to `pagination.totalItems`.
+        aggregations:
+          type: object
+          properties: {}   # unchanged placeholder
+        integrationMeta:
+          type: object
+          additionalProperties: true
+        trace:
+          $ref: "#/components/schemas/Trace"
+
+    Listing:
+      type: object
+      required: [id, integration, integrationId, title, price]
+      properties:
+        id: { type: string }
+        integration: { type: string, enum: [lodgify, guesty, hostaway] }
+        integrationId: { type: string }
+        title: { type: string }
+        price:
+          type: object
+          properties:
+            amount: { type: number }
+            currency: { type: string }
+
+    Pagination:
+      type: object
+      required: [page, pageSize]
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        totalItems: { type: integer }
+        totalPages: { type: integer }
+
+    IntegrationsCapabilitiesResponse:
+      type: object
+      required: [integrations]
+      properties:
+        integrations:
+          type: array
+          items: { $ref: "#/components/schemas/IntegrationCapability" }
+
+    IntegrationCapability:
+      type: object
+      required: [name, pagination, minPageSize, maxPageSize, supportsTotals, totalListingsLimit]
+      properties:
+        name: { type: string, enum: [lodgify, guesty, hostaway] }
+        pagination: { type: string, enum: [offset, cursor] }
+        minPageSize: { type: integer }
+       

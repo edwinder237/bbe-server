@@ -194,6 +194,8 @@ export type CLIENT_LISTING_DETAILS_OBJECT = {
     checkInTime: string,
     checkOutTime: string
     specialNote?: string
+    summary?: string
+    houseRules?:string
   };
 
   reviews?: CLIENT_LISTING_REVIEWS_RETURN;

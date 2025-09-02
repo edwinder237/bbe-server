@@ -131,17 +131,32 @@ const fetchGuestyData = async ({ endpointUrl, token, action, method, body }: gue
 };
 
 export const guestyFetchers = {
-    fetchListings: async ({ token, }: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
-        const endpointUrl = "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=9";
+    fetchListings: async ({ token, params }: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
+
+        const endpointUrl = "https://booking.guesty.com/api/listings?numberOfBedrooms=0&numberOfBathrooms=0&limit=100";
         const action = "fetchGuestyListings";
         const method = "GET";
         const response = await fetchGuestyData({ endpointUrl, token, action, method });
         return response;
     },
+    fetchListingsV2: async ({ token, params }: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
+
+        const endpointUrl = getURLforListingSearch(params);
+        const action = "fetchListingSearch";
+        const response = await fetchGuestyData({ endpointUrl, token, action, method: "GET" });
+        console.log("search",response)
+        return response;
+    },
+    fetchGuestyNextPage: async ({ token, params }) => {
+        //Not used for now
+        const { next } = params.nextPageUrl;
+        const endpointUrl = `https://booking.guesty.com/api/listings?cursor=${next}&limit=9`;
+        const action = "fetchGuestyNextPage";
+        const response = await fetchGuestyData({ endpointUrl, token, action, method: "GET" });
+
+        return response;
+    },
     fetchListingSearch: async ({ token, params }: guestyApiFetcherParams): Promise<guestyListingsReturnType> => {
-        const { location } = params.search || { city: "", state: "", country: "" };
-        const { guestsCount, checkInDateLocalized, checkOutDateLocalized } =
-            params.search;
 
         const endpointUrl = getURLforListingSearch(params);
         const action = "fetchListingSearch";
@@ -194,20 +209,6 @@ export const guestyFetchers = {
             method,
         });
         return response;
-    },
-    fetchGuestyNextPage: async ({ token, params }) => {
-        //Not used for now
-        const { nextPage } = params;
-        const endpointUrl = `https://booking.guesty.com/api/listings?cursor=${nextPage}&limit=9`;
-        const action = "fetchGuestyNextPage";
-        const response = await fetchGuestyData({ endpointUrl, token, action, method: "GET" });
-
-        const converted_listings = response.results.map(
-            (listing: guestyListingsObjectType) =>
-                new guesty_listings_converter(listing).convert()
-        );
-
-        return { filteredListings: converted_listings, pagination: response.pagination.cursor.next };
     },
     fetchListingReservation: async ({ token, params }) => {
         //Not used for now
@@ -287,7 +288,103 @@ export const guestyFetchers = {
 };
 
 export const guestyActions = {
-    getlistings: async ({ internal_ID }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
+    getlistings: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
+
+        try {
+            const tokenResponse = await getAuth({
+                internal_ID,
+                needNewToken: false,
+                integrationType: "guesty",
+            });
+            if (!tokenResponse.success) {
+                throw new Error(`Token validation failed: ${tokenResponse.message}`);
+            }
+
+            const token = tokenResponse.token;
+            if (!token) {
+                throw new Error("Token is undefined");
+            }
+            // console.log("debug",params)
+            try {
+                const [listings] = await Promise.all([
+                    guestyFetchers.fetchListings({ token, params })
+                ]);
+               
+                const pagination = listings.pagination;
+                const converted_listings = listings.results.map(
+                    (listing: guestyListingsObjectType) =>
+                        new guesty_listings_converter(listing).convert()
+                );
+
+                // --- custom pagination via offset + limit ---
+                const limit = params.limit ?? converted_listings.length;
+                const offset = params.offset ?? 0;
+                const paginated_listings = converted_listings.slice(offset, offset + limit);
+
+                return {
+                    items: paginated_listings,
+                    pagination,
+                    total: converted_listings.length,
+                };
+            } catch (error) {
+                console.error("Error fetching listings or cities:", error.message);
+                throw new Error(`Fetching failed: ${error.message}`);
+            }
+        } catch (error: any) {
+            // Log error details for production monitoring
+            console.error("Error in GUESTY ACTION - getListings:", error.message);
+            throw error;
+        }
+    },
+    getlistingsV2: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
+
+        try {
+            const tokenResponse = await getAuth({
+                internal_ID,
+                needNewToken: false,
+                integrationType: "guesty",
+            });
+            if (!tokenResponse.success) {
+                throw new Error(`Token validation failed: ${tokenResponse.message}`);
+            }
+
+            const token = tokenResponse.token;
+            if (!token) {
+                throw new Error("Token is undefined");
+            }
+            // console.log("debug",params)
+            try {
+                const [listings] = await Promise.all([
+                    guestyFetchers.fetchListingsV2({ token, params })
+                ]);
+               
+                const pagination = listings.pagination;
+                const converted_listings = listings.results.map(
+                    (listing: guestyListingsObjectType) =>
+                        new guesty_listings_converter(listing).convert()
+                );
+
+                // --- custom pagination via offset + limit ---
+                const limit = params.limit ?? converted_listings.length;
+                const offset = params.offset ?? 0;
+                const paginated_listings = converted_listings.slice(offset, offset + limit);
+
+                return {
+                    items: paginated_listings,
+                    pagination,
+                    total: converted_listings.length,
+                };
+            } catch (error) {
+                console.error("Error fetching listings or cities:", error.message);
+                throw new Error(`Fetching failed: ${error.message}`);
+            }
+        } catch (error: any) {
+            // Log error details for production monitoring
+            console.error("Error in GUESTY ACTION - getListings:", error.message);
+            throw error;
+        }
+    },
+    getlistingsNextPage: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
 
         try {
             const tokenResponse = await getAuth({
@@ -306,7 +403,7 @@ export const guestyActions = {
 
             try {
                 const [listings] = await Promise.all([
-                    guestyFetchers.fetchListings({ token })
+                    guestyFetchers.fetchGuestyNextPage({ token, params })
                 ]);
                 const pagination = listings.pagination;
                 const converted_listings = listings.results.map(
@@ -451,14 +548,22 @@ export const guestyActions = {
                 token,
                 params,
             });
+
+
             const converted_listings = response.results.map(
                 (listing: guestyListingsObjectType) =>
                     new guesty_listings_converter(listing).convert()
             );
+            // --- custom pagination via offset + limit ---
+            const limit = params.limit ?? converted_listings.length;
+            const offset = params.offset ?? 0;
+            const paginated_listings = converted_listings.slice(offset, offset + limit);
+
             const results: CLIENT_LISTINGS_RETURN = {
                 total: converted_listings.length,
-                items: converted_listings,
+                items: paginated_listings,
             };
+
             return { items: results.items, total: results.total };
 
         } catch (error: any) {
@@ -492,7 +597,6 @@ export const guestyActions = {
                 guestyFetchers.fetchListingDetails({ token, params, listingId }),
                 guestyFetchers.fetchPaymentProviderID({ token, params })
             ]);
-
             const listing = new guesty_listing_detail_Converter(listingDetails);
             const singleListing = listing.convert();
             const spread_converted_listing = { ...singleListing, paymentProvider: paymentProvider };
@@ -539,9 +643,9 @@ function getURLforListingSearch({ search }: BuildGuestyUrlArgs): string {
     const { location = { city: "", state: "", country: "" } } = search;
     const { guestsCount, checkInDateLocalized, checkOutDateLocalized } = search;
 
-    // Format dates with dayjs
-    const checkIn = dayjs(checkInDateLocalized).format("YYYY-MM-DD");
-    const checkOut = dayjs(checkOutDateLocalized).format("YYYY-MM-DD");
+    // Only format dates if they exist
+    const checkIn = checkInDateLocalized ? dayjs(checkInDateLocalized).format("YYYY-MM-DD") : null;
+    const checkOut = checkOutDateLocalized ? dayjs(checkOutDateLocalized).format("YYYY-MM-DD") : null;
 
     const city = location.city;
     const state = location.state;
@@ -551,7 +655,7 @@ function getURLforListingSearch({ search }: BuildGuestyUrlArgs): string {
     const urlParams: string[] = [];
 
     // Required parameters
-    urlParams.push(`minOccupancy=${guestsCount || 0}`); // Fallback if not provided
+    urlParams.push(`minOccupancy=${guestsCount || 1}`); // Default to 1 guest if not provided
     urlParams.push(`numberOfBedrooms=0`);
     urlParams.push(`numberOfBathrooms=0`);
 
@@ -561,13 +665,13 @@ function getURLforListingSearch({ search }: BuildGuestyUrlArgs): string {
     if (state) urlParams.push(`state=${encodeURIComponent(state)}`);
 
     // Date parameters + limit
-    if (checkInDateLocalized) {
+    if (checkIn) {
         urlParams.push(`checkIn=${encodeURIComponent(checkIn)}`);
     }
-    if (checkOutDateLocalized) {
+    if (checkOut) {
         urlParams.push(`checkOut=${encodeURIComponent(checkOut)}`);
     }
-    urlParams.push(`limit=60`);
+    urlParams.push(`limit=100`);
 
     // Construct and return the full URL
     return `${baseUrl}?${urlParams.join("&")}`;
