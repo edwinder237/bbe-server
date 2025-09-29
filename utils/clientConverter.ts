@@ -380,8 +380,8 @@ export class lodgify_listing_details_SITE_converter {
 
       reviews: {
         avg: this.input?.reviews?.averageRating ?? 0,
-        total: this.input?.reviews?.total ?? 0,
-        items: []
+        total: 0, // default to 0 until lodgify supports reviews
+        items: [] // not supported by LODGIFY yet. 
       },
 
       //roomId: this.input?.rooms?.[0]?.id.toString() ?? "999", // Default to 999 if roomId is undefined

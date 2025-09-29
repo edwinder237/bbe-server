@@ -190,6 +190,7 @@ const lodgifySiteFetchers = {
                 grouped_facilities: "",
                 sort: "price",
             };
+           
         const response = await fetchLodgifySiteData({
             endpointUrl,
             lodgifySite: site,
@@ -718,7 +719,6 @@ export const lodgifyActions = {
         }
         const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
 
-
         try {
             // Fetch listing details and reviews
             const [listingDetails, listingDetails_SITE, calendar] = await Promise.all([
@@ -771,7 +771,6 @@ export const lodgifyActions = {
                 wixCms: ListingDetails_WIX,
                 calendar: unavailableDates
             };
-
             return { item: spread_converted_listing };
         } catch (error) {
             console.error(

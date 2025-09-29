@@ -7,9 +7,9 @@ info:
     middleware normalizes integration differences.
 
 servers:
-  - url: http://bbe-server.vercel.app/api/controller
+  - url: http://bbe-server.vercel.app/api/v2
     description: Production
-  - url: http://localhost:8080/api/v2/listings
+  - url: http://localhost:8080/api/v2
     description: Staging
 
 tags:
@@ -28,7 +28,7 @@ security:
   - bearerAuth: [not implemented yet]
 
 paths:
-  /listings/search:
+  /listings:
     post:
       operationId: searchListings
       tags: [Listings]
@@ -204,14 +204,6 @@ paths:
                         supportsTotals: true
                         totalListingsLimit: null
                         notes: null
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "429":
-          $ref: "#/components/responses/RateLimit"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
 
 components:
   securitySchemes:
@@ -394,6 +386,9 @@ components:
 
     ListingsQuery:
       type: object
+      description: |
+        Optional structured filters. Each field can be provided independently
+        (e.g., location-only, guests-only, dates-only) or combined.
       properties:
         location:
           type: object
@@ -414,8 +409,12 @@ components:
           minimum: 1
           default: 1
           description: Number of guests (defaults to 1 if not provided)
-        startDate: { type: string, format: date }
-        endDate: { type: string, format: date }
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
       additionalProperties: false
       allOf:
         - if:
@@ -464,6 +463,15 @@ components:
           description: ISO 4217 currency code (e.g., "EUR")
       additionalProperties: false
 
+    Features:
+      type: object
+      description: Optional feature flags for debugging or experimental behavior.
+      properties:
+        debug:
+          type: boolean
+          default: false
+
+    # === Responses ===
     SearchResponseMerged:
       type: object
       required: [items, pagination]
@@ -480,7 +488,7 @@ components:
             Present when a `query` is provided and `includeTotals=true`. Equal to `pagination.totalItems`.
         aggregations:
           type: object
-          properties: {}   # unchanged placeholder
+          properties: {}   # placeholder for future facets
         integrationMeta:
           type: object
           additionalProperties: true
@@ -525,4 +533,33 @@ components:
         name: { type: string, enum: [lodgify, guesty, hostaway] }
         pagination: { type: string, enum: [offset, cursor] }
         minPageSize: { type: integer }
-       
+        maxPageSize: { type: integer }
+        supportsTotals: { type: boolean }
+        totalListingsLimit: { type: [integer, "null"], nullable: true }
+        notes: { type: [string, "null"] }
+
+    Trace:
+      type: object
+      properties:
+        requestId: { type: string }
+
+    # === Error ===
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: "#/components/schemas/ErrorObject" }
+        trace: { $ref: "#/components/schemas/Trace" }
+
+    ErrorObject:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            [BAD_REQUEST, AUTH, FORBIDDEN, NOT_FOUND, CONFLICT, RATE_LIMIT, INTEGRATION, UNAVAILABLE, UNKNOWN]
+        message: { type: string }
+        integration:
+          type: [string, "null"]
+          enum: [lodgify, guesty, hostaway, null]
