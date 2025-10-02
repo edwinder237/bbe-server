@@ -406,7 +406,6 @@ export const lodgifyActions = {
             const spread_converted_listings = converted_listings.map((listing: CLIENT_LISTINGS_OBJECT): CLIENT_LISTINGS_OBJECT => {
                 const foundWixCmsItem = cmsMap.get(parseInt(listing.id));
                 const foundlodgifySite = lodgifySiteMap.get(parseInt(listing.id));
-
                 return {
                     ...listing,
                     ...(foundlodgifySite && { lodgifySiteApi: foundlodgifySite }),
