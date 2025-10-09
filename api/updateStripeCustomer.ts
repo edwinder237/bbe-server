@@ -31,7 +31,6 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { corsMiddleware } from '../utils/corsMiddleware';
-import axios from 'axios';
 
 interface StripeCustomerResponse {
   id: string;
@@ -81,15 +80,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     while (Date.now() - started < maxWaitMs) {
       // Search for customer by email in Stripe
-      const search = await axios.get('https://api.stripe.com/v1/customers/search', {
-        headers: { Authorization: `Bearer ${stripeApiKey}` },
-        params: { query: `email:"${email}"` },
-        validateStatus: () => true,  // Don't throw on non-200 status
+      const searchUrl = `https://api.stripe.com/v1/customers/search?query=${encodeURIComponent(`email:"${email}"`)}`;
+      const searchResponse = await fetch(searchUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${stripeApiKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
       });
 
-      if (search.status === 200 && Array.isArray(search.data?.data) && search.data.data.length > 0) {
-        found = search.data.data[0] as StripeCustomerResponse;
-        break;
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        if (Array.isArray(searchData?.data) && searchData.data.length > 0) {
+          found = searchData.data[0] as StripeCustomerResponse;
+          break;
+        }
       }
 
       // Exponential backoff with jitter to avoid overwhelming Stripe API
@@ -126,25 +131,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     Object.entries(meta).forEach(([k, v]) => body.append(`metadata[${k}]`, String(v ?? '')));
 
     // UPDATE CUSTOMER: Call Stripe API to update the customer
-    const updated = await axios.post(
+    const updateResponse = await fetch(
       `https://api.stripe.com/v1/customers/${found.id}`,
-      body,
       {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${stripeApiKey}`,
+          'Authorization': `Bearer ${stripeApiKey}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        validateStatus: () => true,  // Handle all status codes
+        body: body.toString(),
       }
     );
 
-    if (updated.status !== 200) {
-      console.warn('[Stripe] Metadata update failed:', updated.status, updated.data);
+    const updateData = await updateResponse.json();
+
+    if (!updateResponse.ok) {
+      console.warn('[Stripe] Metadata update failed:', updateResponse.status, updateData);
       // Return 200 with success: false for consistent error handling
       return res.status(200).json({
         success: false,
         error: 'Failed to update customer',
-        details: updated.data,
+        details: updateData,
         customer: null
       });
     }
@@ -152,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[Stripe] ✅ Updated Customer metadata:');
     return res.status(200).json({
       success: true,
-      customer: updated.data,
+      customer: updateData,
       message: 'Customer updated successfully',
       error: null
     });
@@ -160,15 +167,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error) {
     console.error('[Stripe] ❌ Error updating customer:', error);
-    if (axios.isAxiosError(error) && error.response) {
-      console.error('[Stripe] Error details:', error.response.data);
-      return res.status(200).json({
-        success: false,
-        error: 'Stripe API error',
-        details: error.response.data,
-        customer: null
-      });
-    }
     return res.status(200).json({ 
       success: false,
       error: 'Internal server error',
