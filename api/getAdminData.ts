@@ -28,6 +28,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
       console.log("req.method : GET", req.query);
       const clientCuid = req.query.clientCuid as string | undefined;
+      const action = req.query.action as string | undefined;
+
+      /**
+       * GET /api/getAdminData?clientCuid=123&action=listings
+       * 
+       * Fetches all listings (id and title only) for a specific client.
+       * 
+       * Query Parameters:
+       * - clientCuid: The client ID (integer)
+       * - action: Must be "listings"
+       * 
+       * Returns: Array of {id: string, title: string} objects
+       * 
+       * Process:
+       * 1. Validates client exists in database
+       * 2. Gets client's integration type (Guesty/Lodgify/Hostaway)
+       * 3. Calls controller API to fetch listings from external integration
+       * 4. Filters response to return only id and title fields
+       */
+      if (action === 'listings' && clientCuid && !isNaN(parseInt(clientCuid))) {
+        const clientCuid_int = parseInt(clientCuid);
+        console.log(`[${new Date().toISOString()}] Fetching listings for clientCuid:`, clientCuid_int);
+
+        // Step 1: Get client data from database to determine integration type
+        const client = await withTimeout(
+          prisma.client.findUnique({
+            where: { id: clientCuid_int },
+            include: { integration: true } // Include integration details
+          }),
+          TIMEOUT_LIMIT
+        );
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        if (!client.integration?.title || !client.cuid) {
+          return res.status(400).json({ error: 'Client integration or cuid not configured' });
+        }
+
+        try {
+          // Step 2: Call controller API to fetch listings from external integration
+          // The controller handles Guesty, Lodgify, and Hostaway integrations
+          const controllerResponse = await fetch(`${req.headers.origin || ''}/api/controller`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: `get${client.integration.title.charAt(0).toUpperCase() + client.integration.title.slice(1)}_Listings`, // e.g., "getGuesty_Listings"
+              internal_ID: client.cuid, // Client's unique ID for the integration
+              params: { limit: 1000 } // Get all available listings
+            })
+          });
+
+          if (!controllerResponse.ok) {
+            throw new Error(`Controller request failed: ${controllerResponse.status}`);
+          }
+
+          const listingsData = await controllerResponse.json();
+          
+          // Step 3: Extract only id and title from the full listing objects
+          const simplifiedListings = listingsData.items?.map((listing: any) => ({
+            id: listing.id || listing.internal_ID, // Some integrations use different ID fields
+            title: listing.title || listing.name || '' // Some integrations use 'name' instead of 'title'
+          })) || [];
+
+          return res.status(200).json(simplifiedListings);
+        } catch (error) {
+          console.error(`Error fetching listings for client ${clientCuid_int}:`, error);
+          return res.status(500).json({ error: 'Failed to fetch listings' });
+        }
+      }
 
       // If clientCuid is provided and is a valid number
       if (clientCuid && !isNaN(parseInt(clientCuid))) {
