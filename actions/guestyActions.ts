@@ -95,7 +95,8 @@ const fetchGuestyData = async ({ endpointUrl, token, action, method, body }: gue
             accept: "application/json; charset=utf-8",
             "content-type": "application/json",
             authorization: `Bearer ${token}`,
-        },
+        }
+
     };
 
     function getOptionsRequest(action: string) {
@@ -117,6 +118,10 @@ const fetchGuestyData = async ({ endpointUrl, token, action, method, body }: gue
     try {
         const response = await handleFetch({ fetchUrl: endpointUrl, options, action }) as guestyApiReturn;
 
+        //SAME DAY BOOKING HANDLING ERROR HANDLING
+        if (response?.error?.message === 'Query string parameter "checkIn" is invalid') {
+            throw new Error('SAMEDAY_BOOKING_ERROR');     
+        }
         if (response.error) {
             console.log(response.error)
             throw new Error(`${response?.error.code} `);
@@ -144,7 +149,7 @@ export const guestyFetchers = {
         const endpointUrl = getURLforListingSearch(params);
         const action = "fetchListingSearch";
         const response = await fetchGuestyData({ endpointUrl, token, action, method: "GET" });
-        console.log("search",response)
+        console.log("search", response)
         return response;
     },
     fetchGuestyNextPage: async ({ token, params }) => {
@@ -265,6 +270,7 @@ export const guestyFetchers = {
             method,
             body,
         });
+        //handle unavailable listing request
 
         if (response === "LISTING_IS_NOT_AVAILABLE") {
             return {
@@ -309,7 +315,7 @@ export const guestyActions = {
                 const [listings] = await Promise.all([
                     guestyFetchers.fetchListings({ token, params })
                 ]);
-               
+
                 const pagination = listings.pagination;
                 const converted_listings = listings.results.map(
                     (listing: guestyListingsObjectType) =>
@@ -357,7 +363,7 @@ export const guestyActions = {
                 const [listings] = await Promise.all([
                     guestyFetchers.fetchListingsV2({ token, params })
                 ]);
-               
+
                 const pagination = listings.pagination;
                 const converted_listings = listings.results.map(
                     (listing: guestyListingsObjectType) =>
