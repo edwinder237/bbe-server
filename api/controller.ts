@@ -13,7 +13,6 @@ import {
     ActionsMap,
 } from "../utils/types";
 import { wixCmsFetchers } from "../actions/wixCmsActions";
-import { get } from "lodash";
 
 
 const actions: ActionsMap = {
@@ -25,11 +24,11 @@ const actions: ActionsMap = {
         return wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params });
     },
     //////////////GUESTY ACTIONS////////
-    getGuesty_Listings: async ({ internal_ID,params }: actionsParams) => {
-        return guestyActions.getlistings({ internal_ID,params })
+    getGuesty_Listings: async ({ internal_ID, params }: actionsParams) => {
+        return guestyActions.getlistings({ internal_ID, params })
     },
-    getGuesty_NextPage: async ({ internal_ID,params }: actionsParams) => {
-        return guestyActions.getlistingsNextPage({ internal_ID,params })
+    getGuesty_NextPage: async ({ internal_ID, params }: actionsParams) => {
+        return guestyActions.getlistingsNextPage({ internal_ID, params })
     },
     getGuesty_ListingDetails: async ({ internal_ID, params }) => {
         return guestyActions.getListingDetails({ internal_ID, params })
@@ -75,6 +74,9 @@ const actions: ActionsMap = {
     },
     getLodgify_ListingQuote: async ({ auth, params, internal_ID }) => {
         return lodgifyActions.getListingQuote({ internal_ID, auth, params });
+    },
+    getLodgify_ListingApiQuote: async ({ auth, params, internal_ID }) => {
+        return lodgifyActions.getListingApiQuote({ internal_ID, auth, params });
     },
     getLodgify_ListingCurrencies: async ({ internal_ID, params }) => {
         return lodgifyActions.getListingCurrencies({ internal_ID, params });

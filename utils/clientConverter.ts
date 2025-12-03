@@ -21,6 +21,7 @@ import {
   lodgifyListingCalendarObectType,
   lodgifyListingCalendarReturnType,
   lodgifyListingsRatesCalendarReturnType,
+  lodgifyListingApiQuoteObjectType
 
 } from './types/lodgify';
 
@@ -45,6 +46,7 @@ import {
 
 
 } from './types/hostaway';
+import { ta } from 'date-fns/locale';
 // Create a class to handle the conversion - DESCRIPTION MUST BE IN SNAKE_CASE FORMAT 
 
 /// LODGIFY ///
@@ -138,8 +140,9 @@ export class lodgify_listing_details_converter {
     this.input = input;
   }
 
-  // Method to convert input to front-end
-  public convert(): CLIENT_LISTING_DETAILS_OBJECT {
+  public async convert(): Promise<CLIENT_LISTING_DETAILS_OBJECT> {
+    const coords = await this.getCoordinates();
+
     return {
       id: this.input.id.toString(),
       roomId: this.input.rooms[0]?.id.toString(),
@@ -153,14 +156,67 @@ export class lodgify_listing_details_converter {
         max_price: this.input.max_price,
         basePrice: this.input.min_price,
         currency: this.input.currency.code
-
-      }
+      },
+      hostLanguages: this.input?.owner?.spoken_languages ?? [],
+      address: {
+        isAddressHidden: false,
+        city: this.input?.city ?? "",
+        country: this.input?.country ?? "",
+        full: `${this.input?.address}, ${this.input?.city}, ${this.input?.country}, ${this.input?.zip ?? ""}`,
+        lat: coords?.lat ?? 0,
+        lng: coords?.lng ?? 0,
+        state: "",
+        street: "",
+        zipCode: this.input?.zip ?? "",
+      },
     };
   }
 
+private async getCoordinates(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const address = (this.input?.address ?? "").trim();
+    const city = (this.input?.city ?? "").trim();
+    const zip = (this.input?.zip ?? "").trim();
+    const country = (this.input?.country ?? "").trim();
 
+    const fullAddress = `${address}, ${city}, ${zip}, ${country}`;
 
-};
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullAddress)}&format=json&limit=1`,
+      { 
+        headers: { 
+          'User-Agent': 'BBE-Lodgify-App/1.0 (contact@yourdomain.com)',
+          'Accept': 'application/json',
+          'Referer': 'https://yourdomain.com'
+        } 
+      }
+    );
+
+    // Check if response is OK before parsing
+    if (!response.ok) {
+      console.error('Nominatim request failed:', response.status, response.statusText);
+      return null;
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Nominatim returned non-JSON response:', contentType);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (Array.isArray(data) && data.length > 0) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+}
+}
 
 export class lodgify_listing_roomInfo_converter {
   private input: lodgifyListingRoomInfoObjectType;
@@ -365,7 +421,7 @@ export class lodgify_listing_details_SITE_converter {
   // Method to convert input to front-end
   public convert(): CLIENT_LISTING_DETAILS_OBJECT {
     return {
-      hostLanguages: this.input.ownerSpokenLanguages ?? [],
+      
       publicDescription: {
         transit: "",
         neighborhood: "",
@@ -386,17 +442,6 @@ export class lodgify_listing_details_SITE_converter {
 
       //roomId: this.input?.rooms?.[0]?.id.toString() ?? "999", // Default to 999 if roomId is undefined
 
-      address: {
-        isAddressHidden: this.input?.addressInfo?.isAddressHidden ?? false,
-        city: this.input?.addressInfo?.city ?? "",
-        country: this.input?.addressInfo?.country ?? "",
-        full: this.input?.addressInfo?.address ?? "",
-        lat: this.input?.addressInfo?.coordinates?.lat ?? 0,
-        lng: this.input?.addressInfo?.coordinates?.lng ?? 0,
-        state: this.input?.addressInfo?.stateProvince ?? "",
-        street: "not available",
-        zipCode: this.input?.addressInfo?.zipCode ?? "",
-      },
       thingsToknow: {
         checkInTime: this.convertToTimeString(this.input.arrivalHour),
         checkOutTime: this.convertToTimeString(this.input.departureHour),
@@ -596,6 +641,118 @@ export class lodgify_listing_quote_converter {
     }));
   }
 };
+export class lodgify_listing_api_quote_converter {
+  private input: lodgifyListingApiQuoteObjectType;
+
+  constructor(input: lodgifyListingApiQuoteObjectType) {
+    this.input = input;
+  }
+
+  // Method to convert input to Listing_Quote_Client format
+  public convert(): CLIENT_LISTING_QUOTE_OBJECT {
+    const checkInDate = this.input[0]?.date_arrival || "";
+    const checkOutDate = this.input[0]?.date_departure || "";
+    const currency = this.input[0]?.currency_code || "USD";
+    const apiQuote = this.input[0]; // Access the first item in the array
+    const preTotal = apiQuote.room_types[0]?.price_types[0]?.subtotal || 0;
+    const stayLength = this.calculateDaysBetween(checkInDate, checkOutDate);
+    const costPerNight = preTotal / stayLength;
+    const subTotal = apiQuote.room_types[0]?.subtotal || 0;
+    const priceTypes = apiQuote.room_types[0]?.price_types || [];
+    const feesItems = this.convertPriceTypesByType(priceTypes, 2, currency, "fee"); // Type 2 for fees
+    const taxesItems = this.convertPriceTypesByType(priceTypes, 4, currency, "taxes"); // Type 4 for taxes
+    const promoItems = this.convertPriceTypesByType(priceTypes, 1, currency, "promotion"); // Type 1 for promotions
+    const otherItems = this.convertPriceTypesByType(priceTypes, 0, currency, "other"); // Type 0 for other
+    const totalTaxes = this.input[0]?.total_vat;
+    const totalWithTaxes = subTotal + totalTaxes;
+
+    return {
+      propertyId: apiQuote.property_id?.toString(),
+      currency: apiQuote.currency_code,
+      ratePlanId: apiQuote.rate_policy_user_id?.toString(),
+
+      // Date Information
+      lengthOfStay: stayLength, // LODGIFY API QUOTE DOES NOT PROVIDE LENGTH OF STAY
+
+      // Invoice Details
+      preTotal: preTotal,
+      nightlyTotal: preTotal,
+      nightlyPrice: costPerNight,
+      subTotal: subTotal,
+      stayTotal: totalWithTaxes, // BEFORE: this.input.totalPrice.total,
+
+      // Promo Information
+      //totalPromo: this.input.rentalPrice.promotions.reduce((sum, promotion) => sum + promotion.value, 0),
+      //promoItems: this.convertPromos(this.input.rentalPrice.promotions),
+
+      // Fees Information
+      totalFees: feesItems.total,
+      feesItems: feesItems.items,
+
+      // Taxes Information
+      totalTaxes: taxesItems.total,
+      taxesItems: taxesItems.items,
+
+    };
+  }
+
+  // Extract fees from Lodgify price_types and convert to your output format
+  private convertPriceTypesByType(
+    priceTypes: {
+      type: number;
+      description: string;
+      is_negative?: boolean;
+      subtotal?: number;
+      prices?: { uid?: string; description: string; amount: number }[];
+    }[],
+    targetType: number,
+    currency: string,
+    label: string
+  ): {
+    total: number;
+    items: { title: string; amount: number; type: string; currency: string }[];
+  } {
+    const block = priceTypes.find(pt => pt.type === targetType);
+    if (!block) {
+      return { total: 0, items: [] };
+    }
+    const total = block.subtotal ?? 0;
+    const hasLines = Array.isArray(block.prices) && block.prices.length > 0;
+    const items = hasLines
+      ? block.prices!.map(p => ({
+        title: p.description || block.description,
+        amount: p.amount,
+        type: label === "Taxes" || label === "taxes" ? "tax" : label,
+        currency
+      }))
+      : total > 0
+        ? [
+          {
+            title: block.description || label,
+            amount: total,
+            type: label === "Taxes" || label === "taxes" ? "tax" : label,
+            currency
+          }
+        ]
+        : [];
+    return { total, items };
+  }
+  private calculateDaysBetween(
+    startDate: string | Date,
+    endDate: string | Date
+  ): number {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Convert to UTC to avoid timezone/DST issues
+    const startUtc = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+    const endUtc = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+
+    const millisecondsPerDay = 1000 * 60 * 60 * 24;
+
+    return Math.abs(Math.round((endUtc - startUtc) / millisecondsPerDay));
+  }
+};
 /// GUESTY ///
 export class guesty_listings_converter {
   private input: guestyListingsObjectType;
@@ -722,7 +879,7 @@ export class guesty_listing_detail_Converter {
         checkOutTime: this.input?.defaultCheckOutTime,
         houseRules: this.input?.publicDescription?.houseRules,
         specialNote: this.input?.publicDescription?.notes,
-        summary:this.input?.publicDescription?.summary
+        summary: this.input?.publicDescription?.summary
       }
     };
   }
@@ -764,7 +921,8 @@ export class guesty_listing_quote_Converter {
       name: this.input.coupons[0]?.name,
       value: this.input.coupons[0]?.discount || 0,
       type: this.input.coupons[0]?.discountType || "",
-      currency: quote.currency}]
+      currency: quote.currency
+    }]
     const totalCoupon = this.input.coupons[0]?.discount || 0;
     return {
       quoteId: this.input._id,
@@ -817,7 +975,7 @@ export class guesty_listing_quote_Converter {
 
     return basePrice / stayLength;
   }
-  
+
 
   // Helper method to convert Invoice items
   private convertInvoiceItems(

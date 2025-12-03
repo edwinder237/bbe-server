@@ -1,5 +1,6 @@
 import { handleFetch } from "../utils/handleFetching";
 import dayjs from "dayjs"
+
 import { filterUnavailableDates } from "../utils/filterUnavailableDates";
 import { getLodgifyKeys } from "../utils/tokenServiceCaching";
 import { wixCmsFetchers } from "./wixCmsActions";
@@ -43,10 +44,10 @@ import {
     lodgify_listing_roomInfo_converter,
     lodgify_listing_details_SITE_converter,
     lodgify_listing_quote_converter,
+    lodgify_listing_api_quote_converter,
     lodgify_listing_calendar_converter,
     lodgify_listings_rateCalendar_converter
 } from "../utils/clientConverter";
-
 
 const integrationType: integrationTypes = "lodgify";
 
@@ -105,14 +106,12 @@ const fetchLodgifyData = async ({ endpointUrl, lodgifyAuth, action, method, defa
             "Accept-Language": default_Lang || "en"
         },
     };
-
     try {
         const response = await handleFetch({ fetchUrl: endpointUrl, options, action }) as LodgifyApiReturnType;
         if (response.status === 400) {
             console.warn(`Error: ${response.title || response.detail}`)
             throw new Error(`${response.title || response.detail}`)
         }
-
         return response
 
     } catch (error) {
@@ -156,7 +155,6 @@ const fetchLodgifySiteData = async ({ endpointUrl, method, lodgifySite, action, 
                 `Failed to fetch data from ${action}: ${response.message}`
             );
         }
-
         return response.data;
     } catch (error) {
         console.error(`Error FETCHER - in fetchLodgifySiteAPI: ${error.message}`);
@@ -190,7 +188,7 @@ const lodgifySiteFetchers = {
                 grouped_facilities: "",
                 sort: "price",
             };
-           
+
         const response = await fetchLodgifySiteData({
             endpointUrl,
             lodgifySite: site,
@@ -283,6 +281,19 @@ export const lodgifyFetchers: FetchMap = {
 
         const endpointUrl = `https://checkout.lodgify.com/api/v1/checkout/price?propertyId=${listingId}&arrival=${checkInDateLocalized}&departure=${checkOutDateLocalized}&guests=${guestsCount}&currency=${currency}`;
         const action = "fetchLodgifyListingQuote";
+        const method = "GET";
+        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth: auth, method, action, default_Lang });
+        return response;
+    },
+    fetchListingApiQuote: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingQuoteReturnType> => {
+        const { listingId, quote, default_Lang,roomId } = params;
+        const { checkInDateLocalized, checkOutDateLocalized, guestsCount, currency } = quote;
+        const toISODate = (date: string) => `${date}T00:00:00Z`;
+        const checkInDateISO = toISODate(checkInDateLocalized);
+        const checkOutDateISO = toISODate(checkOutDateLocalized);
+
+        const endpointUrl = `https://api.lodgify.com/v2/quote/${listingId}?arrival=${checkInDateISO}&departure=${checkOutDateISO}&roomTypes[0].id=${roomId}&roomTypes[0].people=${guestsCount}&currency=${currency}`;
+        const action = "fetchLodgifyListingAPIQuote";
         const method = "GET";
         const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth: auth, method, action, default_Lang });
         return response;
@@ -720,11 +731,13 @@ export const lodgifyActions = {
 
         try {
             // Fetch listing details and reviews
-            const [listingDetails, listingDetails_SITE, calendar] = await Promise.all([
-                lodgifyFetchers.fetchListingDetails({ internal_ID, auth: keysObject, params, default_Lang }),
-                lodgifySiteFetchers.fetchSiteListingDetails({ auth: keysObject, params, default_Lang }),
-                lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang })
-            ]);
+            const [listingDetails,
+                //listingDetails_SITE, DISABLED
+                calendar] = await Promise.all([
+                    lodgifyFetchers.fetchListingDetails({ internal_ID, auth: keysObject, params, default_Lang }),
+                    //  lodgifySiteFetchers.fetchSiteListingDetails({ auth: keysObject, params, default_Lang }), DISABLED
+                    lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang })
+                ]);
 
             //Fetch roomInfo to access listing photos - ONLY SUPPORT ONE ROOM FOR NOW
             const RoomId = listingDetails?.rooms[0]?.id.toString();
@@ -738,11 +751,10 @@ export const lodgifyActions = {
             // CONVERSION TO FRONT END FORMAT
 
             //LISTING DETAILS 
-            const converted_listing = new lodgify_listing_details_converter(listingDetails as lodgifyListingDetailsObjectType).convert();
+            const converted_listing = await new lodgify_listing_details_converter(listingDetails as lodgifyListingDetailsObjectType).convert();
 
             //LISTING DETAILS (lodgify site api) ** gets addional data missing from other apis 
-            const converted_listing_SITE = new lodgify_listing_details_SITE_converter(listingDetails_SITE as unknown as Lodgify_Listing_Details_SITE_ObjectType).convert();
-
+            // const converted_listing_SITE = new lodgify_listing_details_SITE_converter(listingDetails_SITE as unknown as Lodgify_Listing_Details_SITE_ObjectType).convert(); DISABLED
             //ROOM INFO 
             const converted_listingRoomInfo = new lodgify_listing_roomInfo_converter(roomInfo as lodgifyListingRoomInfoObjectType).convert();
             //CALENDAR 
@@ -754,17 +766,17 @@ export const lodgifyActions = {
             // this is used when client request a min bookable dates on their calendar
             // const unavailableDates = internal_ID !== "f9ae756d-be1b-4593-87aa-c245416e4ae7" ? (converted_calendar) :
             // (converted_calendar_MinDays);
-            const unavailableDates =  converted_calendar;
-                
+            const unavailableDates = converted_calendar;
+
             //SPREAD ADDITIONAL DATA TO ITEM 
 
             const spread_converted_listing = {
                 ...converted_listing,
                 ...converted_listingRoomInfo,
-                ...converted_listing_SITE, // Spread this first
+                //  ...converted_listing_SITE, // Spread this first DEACTIVATED BY LODGIFY
                 publicDescription: {
                     ...converted_listing.publicDescription,
-                    ...converted_listing_SITE.publicDescription,
+                    //      ...converted_listing_SITE.publicDescription,
                     summary: converted_listingRoomInfo.publicDescription.summary
                 },
                 wixCms: ListingDetails_WIX,
@@ -795,6 +807,30 @@ export const lodgifyActions = {
             return { item: CONVERTED_QUOTE };
         } catch (error) {
             console.error("Error ACTION - fetching quote data:", error);
+            throw error
+        }
+    },
+    getListingApiQuote: async ({ auth, params, internal_ID }: actionsParams): Promise<CLIENT_LISTING_QUOTE_RETURN> => {
+        try {
+            const { default_Lang } = params;
+            const keys = await getLodgifyKeys(internal_ID);
+            const { ApiKey, AppKey } = keys.client;
+            if (!ApiKey || !AppKey) {
+                throw new Error("Missing Lodgify API keys");
+            };
+            const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
+
+            const response = await lodgifyFetchers.fetchListingApiQuote({ auth:keysObject, params, default_Lang, keysObject: { apiKey: ApiKey, appKey: AppKey } })
+            if (response.error) {
+                throw new Error(response.error)
+            }
+
+            const QUOTE = new lodgify_listing_api_quote_converter(response);
+            const CONVERTED_QUOTE = QUOTE.convert();
+
+            return { item: CONVERTED_QUOTE };
+        } catch (error) {
+            console.error("Error ACTION - fetching API quote data:", error);
             throw error
         }
     },

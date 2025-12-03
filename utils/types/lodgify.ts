@@ -422,6 +422,72 @@ export type lodgifyListingQuoteReturnType = {
   error?: string;
   message?: string;
 };
+//LISTING QUOTE API
+export type lodgifyListingApiQuoteObjectType = {
+  total_including_vat: number | null;
+  total_excluding_vat: number;
+  total_vat: number;
+
+  property_id: number;
+  date_arrival: string;     // ISO datetime
+  date_departure: string;   // ISO datetime
+
+  currency_code: string;
+
+  room_types: {
+    room_type_id: number;
+    name: string;
+    people: number;
+    price_types: {
+      type: number;                // 0 = room rate, 1 = promotion, 2 = fees, 4 = taxes
+      is_negative: boolean;
+      description: string;
+      prices: {
+        uid: string;
+        description: string;
+        amount: number;
+        fee_type: number | null;       // when type = fees
+        room_rate_type: number | null; // when type = room rate
+      }[];
+      subtotal: number;
+    }[];
+    subtotal: number;
+  }[];
+
+  add_ons: any[];               // API returns empty array but could hold structured data
+  other_items: any[];           // same as above
+  add_ons_subtotal: number;
+
+  rate_policy_user_id: number | null;
+
+  scheduled_payments: {
+    type: string;          // "Payment"
+    date_due: string;      // "On agreement" or formatted date
+    amount: number;
+    is_current: boolean;
+    status: string;        // "Scheduled"
+  }[];
+
+  scheduled_damage_protection: any[]; // empty array in sample
+
+  security_deposit: number;
+  total_scheduled_payments: number;
+  total_to_collect_manually: number;
+
+  amount_gross: number;
+
+  rental_agreement: string;
+
+  cancellation_policy_text: string;
+  security_deposit_text: string;
+
+  is_verification: boolean;
+};
+export type lodgifyListingApiQuoteReturnType = {
+  item: lodgifyListingApiQuoteObjectType[];
+  error?: string;
+  message?: string;
+};
 
 export type Property_info_by_Id_includeInOut = {
   id: number;

@@ -10,9 +10,25 @@ export const handleFetch = async ({ fetchUrl, options, action }: handleFetchPara
 
   // Merge the AbortController's signal into the user's options
   const fetchOptions = { ...options, signal: controller.signal };
-
   try {
     const response = await fetch(fetchUrl, fetchOptions);
+
+if (!response.ok) {
+  //HANDLES AUTH ERRORS FROM API RESPONSE
+  const responseData = await response.json();
+  console.log("Fetch error response data:", responseData);
+  const text = await response.text().catch(() => '');
+  const message =
+    response.status === 403
+    //  ? `AUTH Error: Forbidden 403 from ${fetchUrl}`  DEBUG ONLY
+      ? `The service is temporarily unavailable`
+      :responseData.code === 666 // temp hack for lodgify custom error code
+      ?responseData.message
+      : `HTTP ${response.status}: ${response.statusText}: ${responseData.message || text|| 'internal server error'}`;
+
+  const error = new Error(message);
+  throw error;
+}
     const data = await response.json();
 
     const endTime = Date.now();
