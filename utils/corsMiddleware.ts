@@ -13,7 +13,6 @@ export const corsMiddleware = (req: VercelRequest, res: VercelResponse) => {
 'https://bbeadmin.lumiversa.com' ];
   
   const origin = req.headers.origin;
-
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');

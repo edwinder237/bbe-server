@@ -4,6 +4,7 @@ import { corsMiddleware } from "../utils/corsMiddleware";
 import { hostawayActions, hostawayFetchers } from "../actions/hostawayActions";
 import { guestyActions, guestyFetchers } from "../actions/guestyActions";
 import { lodgifyActions } from "../actions/lodgifyActions";
+import { revyoosActions } from "../actions/revyoosActions";
 
 
 
@@ -13,6 +14,7 @@ import {
     ActionsMap,
 } from "../utils/types";
 import { wixCmsFetchers } from "../actions/wixCmsActions";
+import { ac } from "@upstash/redis/zmscore-Dc6Llqgr";
 
 
 const actions: ActionsMap = {
@@ -113,7 +115,10 @@ const actions: ActionsMap = {
     getHostaway_ListingReservation: async ({ internal_ID, params }) => {
         return hostawayActions.getListingReservation({ internal_ID, params });
     },
-
+    //////////////REVYOOS INTEGRATION ACTIONS////////
+    getRevyoos_ListingReviews: async ({ internal_ID, params, wix_params, auth }) => {
+        return revyoosActions.getListingReviews({ internal_ID, params, wix_params, auth });
+    },
 
 };
 
@@ -132,6 +137,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Increment the request count (PROD ONLY)
         //await incrementRequestCount(internal_ID);
+
+        if (action?.startsWith("getRevyoos")) {
+            
+            if (actions[action]) {
+                const actionResults = await actions[action]({ internal_ID, params, wix_params });
+                return res.status(200).json(actionResults);
+            } else {
+                return res.status(400).json({ error: "Invalid Revyoos action" });
+            }
+        } else
         if (action?.startsWith("getWixCms")) {
 
             if (!wix_params.siteURL) {

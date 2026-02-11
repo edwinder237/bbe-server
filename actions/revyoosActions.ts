@@ -1,7 +1,5 @@
 import { handleFetch } from "../utils/handleFetching";
-import dayjs from "dayjs"
-
-import { filterUnavailableDates } from "../utils/filterUnavailableDates";
+import { kv } from "@vercel/kv";
 import { getLodgifyKeys } from "../utils/tokenServiceCaching";
 import { wixCmsFetchers } from "./wixCmsActions";
 import {
@@ -47,11 +45,9 @@ import {
     lodgify_listing_api_quote_converter,
     lodgify_listing_calendar_converter,
     lodgify_listings_rateCalendar_converter,
-    revyoos_listing_reviews_converter,
+    revyoos_listing_reviews_converter
 } from "../utils/clientConverter";
-
-//REVYOOS INTEGRATION
-import { revyoosActions } from "./revyoosActions";
+import { method } from "lodash";
 
 const integrationType: integrationTypes = "lodgify";
 
@@ -96,7 +92,77 @@ interface lodgifySite {
     id: string;
 }
 
+const REVYOOS_TOKEN_KEY = "revyoos_token";
+const REVYOOS_TOKEN_TTL = 6 * 24 * 60 * 60; // 6 days in seconds
+
+const getRevyoosToken = async (): Promise<string> => {
+    try {
+        const cachedToken = await kv.get(REVYOOS_TOKEN_KEY);
+        if (cachedToken) {
+            return cachedToken as string;
+        }
+    } catch (error) {
+        console.warn("Error reading revyoos token from Redis, fetching new one:", error.message);
+    }
+
+    return fetchNewRevyoosToken();
+};
+
+const fetchNewRevyoosToken = async (): Promise<string> => {
+    const signinUrl = "https://www.revyoos.com/lapi/signin?email=roz.bourgeois@gmail.com&password=97c300a2806fa932abc197b878824d1346d287c4";
+    console.log("[Revyoos] Attempting to fetch new token from signin endpoint...");
+    try {
+        const response = await handleFetch({
+            fetchUrl: signinUrl,
+            options: { method: "GET", headers: { accept: "application/json" } },
+            action: "revyoosSignin",
+        }) as any;
+
+        console.log("[Revyoos] Signin response received:", JSON.stringify(response));
+
+        const token = response.s_token;
+        if (!token) {
+            console.error("[Revyoos] No token field in signin response. Full response:", JSON.stringify(response));
+            throw new Error("No token returned from Revyoos signin");
+        }
+
+        console.log("[Revyoos] Token fetched successfully, caching in Redis with TTL:", REVYOOS_TOKEN_TTL);
+        // Cache in Redis with TTL (non-blocking — don't let Redis failure prevent returning the token)
+        try {
+            await kv.set(REVYOOS_TOKEN_KEY, token, { ex: REVYOOS_TOKEN_TTL });
+            console.log("[Revyoos] Token cached in Redis successfully");
+        } catch (cacheError) {
+            console.warn("[Revyoos] Failed to cache token in Redis, continuing without cache:", cacheError.message);
+        }
+        return token;
+    } catch (error) {
+        console.error("[Revyoos] Error fetching new token:", error.message);
+        throw error;
+    }
+};
+
 // Helper function to fetch Lodgify data with timeout
+
+const fetchRevyoosData = async ({ endpointUrl, auth, action, method }): Promise<any> => {
+    const options: RequestInit = {
+        method: method,
+        headers: {
+            accept: "application/json",
+        },
+    };
+    try {        const response = await handleFetch({ fetchUrl: endpointUrl, options, action }) as any;
+        if (response.status === 400) {
+            console.warn(`Error: ${response.title || response.detail}`)
+            throw new Error(`${response.title || response.detail}`)
+        }
+        return response
+    } catch (error) {
+        console.error(`Error REVYOOS FETCHER: ${error.message}`);
+        throw error;
+    }
+
+};
+
 const fetchLodgifyData = async ({ endpointUrl, lodgifyAuth, action, method, default_Lang }: LodgifyApiProp): Promise<LodgifyApiReturnType> => {
     const appKey = lodgifyAuth?.appKey;
     const apiKey = lodgifyAuth?.apiKey;
@@ -215,6 +281,8 @@ const lodgifySiteFetchers = {
 };
 
 export const lodgifyFetchers: FetchMap = {
+
+
     fetchListings: async ({ auth: lodgifyAuth, params: { pageNum } }: ApiFetcherParams): Promise<lodgifyListingsReturnType> => {
         const endpointUrl = `https://api.lodgify.com/v2/properties?includeCount=true&includeInOut=true&page=${pageNum}&size=12`;
         const response = await fetchLodgifyData({
@@ -258,74 +326,40 @@ export const lodgifyFetchers: FetchMap = {
         const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth, action, method, default_Lang: "en" });
         return response;
     },
-    fetchListingCalendar: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingCalendarReturnType> => {
-        const { listingId, availabilities } = params;
-        const { fromDate, toDate } = availabilities;
-        const fromDateISO = dayjs(fromDate).toISOString();
-        const toDateISO = dayjs(toDate).toISOString();
-        const method = "GET";
-        const endpointUrl = `https://api.lodgify.com/v1/availability/${listingId}?periodStart=${fromDateISO}&periodEnd=${toDateISO}`;
-        const lodgifyAuth = auth;
-        const action = "fetchLodgifyListingCalendar";
-        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth, action, method, default_Lang: "en" });
-        return response;
-    },
-    fetchListingRoomInfo: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingRoomInfoReturnType> => {
-        const { listingId, websiteId, default_Lang } = params; // Extract relevant params
-        if (!params.roomId) console.warn(" RoomId is missing")
-        const endpointUrl = `https://api.lodgify.com/v1/properties/${listingId}/rooms/${params.roomId}?wid=${websiteId}`;
-        const action = "fetchLodgifyListingInfo";
-        const method = "GET";
-        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth: auth, method, action, default_Lang });
-        return response;
-    },
-    fetchListingQuote: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingQuoteReturnType> => {
-        const { listingId, quote, default_Lang } = params;
-        const { checkInDateLocalized, checkOutDateLocalized, guestsCount, currency } = quote;
-
-        const endpointUrl = `https://checkout.lodgify.com/api/v1/checkout/price?propertyId=${listingId}&arrival=${checkInDateLocalized}&departure=${checkOutDateLocalized}&guests=${guestsCount}&currency=${currency}`;
-        const action = "fetchLodgifyListingQuote";
-        const method = "GET";
-        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth: auth, method, action, default_Lang });
-        return response;
-    },
-    fetchListingApiQuote: async ({ auth, params }: ApiFetcherParams): Promise<lodgifyListingQuoteReturnType> => {
-        const { listingId, quote, default_Lang,roomId } = params;
-        const { checkInDateLocalized, checkOutDateLocalized, guestsCount, currency } = quote;
-        const toISODate = (date: string) => `${date}T00:00:00Z`;
-        const checkInDateISO = toISODate(checkInDateLocalized);
-        const checkOutDateISO = toISODate(checkOutDateLocalized);
-
-        const endpointUrl = `https://api.lodgify.com/v2/quote/${listingId}?arrival=${checkInDateISO}&departure=${checkOutDateISO}&roomTypes[0].id=${roomId}&roomTypes[0].people=${guestsCount}&currency=${currency}`;
-        const action = "fetchLodgifyListingAPIQuote";
-        const method = "GET";
-        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth: auth, method, action, default_Lang });
-        return response;
-    },
-    fetchListingCurrencies: async ({ auth, params }) => {
-        const { default_Lang } = params;
-        const endpointUrl = `https://api.lodgify.com/v1/currencies/${params?.currency}`;;
-        const action = "fetchLodgifyCurrencies";
-        const lodgifyAuth = auth;
-        const method = "GET";
-        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth, action, method, default_Lang });
-        return response
-    },
-    fetchListingsRatesCalendar: async ({ auth, params }) => {
-        const { default_Lang, availabilities, listingId, roomId } = params;
-        const { fromDate, toDate } = availabilities;
-
-        const endpointUrl = `https://api.lodgify.com/v2/rates/calendar?RoomTypeId=${roomId}&HouseId=${listingId}&StartDate=${fromDate}&EndDate=${toDate}`;;
-        const action = "fetchLodgifyRatesCalendar";
-        const lodgifyAuth = auth;
-        const method = "GET";
-        const response = await fetchLodgifyData({ endpointUrl, lodgifyAuth, action, method, default_Lang });
-        return response
-    }
 
 };
 
-export const lodgifyActions = {
+export const revyoosFetchers = {
+    fetchingReyoosListingReviews : async ({ internal_ID, params, wix_params, auth, revyoosHoldingId }): Promise<any> => {
+        const holdingId = revyoosHoldingId;
+        let token = await getRevyoosToken();
+        console.log(`Fetching Revyoos reviews for holding ID ${holdingId} with token ${token}`);
+        const endpointUrl = `https://www.revyoos.com/lapi/reviews?token=${token}&page=1&limit=500&id_holding=${holdingId}`;
+
+        try {
+            const response = await fetchRevyoosData({
+                endpointUrl,
+                method: "GET",
+                action: "fetchRevyoosListingReviews",
+                auth: token
+            });
+            return response;
+        } catch (error) {
+            // Token may be expired — fetch a new one and retry once
+            console.warn("Revyoos token may be expired, fetching new token and retrying...");
+            token = await fetchNewRevyoosToken();
+            const retryUrl = `https://www.revyoos.com/lapi/reviews?token=${token}&page=1&limit=500&id_holding=${holdingId}`;
+            const response = await fetchRevyoosData({
+                endpointUrl: retryUrl,
+                method: "GET",
+                action: "fetchRevyoosListingReviews_retry",
+                auth: token
+            });
+            return response;
+        }
+    }};
+
+export const revyoosActions = {
     getListings: async ({ internal_ID, params, wix_params, auth, }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
         const isWixCMSRequested = wix_params?.wix_req;
         const isLodgifySiteRequested = !!params?.lodgifySite?.id;
@@ -553,174 +587,6 @@ export const lodgifyActions = {
             throw error;
         }
     },
-    getListingSearch: async ({ internal_ID, params, wix_params }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
-        const keys = await getLodgifyKeys(internal_ID);
-        const { ApiKey, AppKey } = keys.client;
-
-        if (!ApiKey || !AppKey) {
-            throw new Error("Missing Lodgify API keys");
-        }
-        const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
-        try {
-
-            const { search, lodgifySite, default_Lang } = params;
-            const validDates = !!search.checkInDateLocalized && !!search.checkOutDateLocalized;
-            const checkInDate = dayjs(search.checkInDateLocalized).format('YYYY-MM-DD');
-            const checkOutDate = dayjs(search.checkOutDateLocalized).format('YYYY-MM-DD');
-            const searchParams = {
-                guestsCount: search.guestsCount || 0,
-                checkInDateLocalized: checkInDate || "",
-                checkOutDateLocalized: checkOutDate || "",
-                location: { city: "", state: "", country: "" }
-            };
-            const paramsProps = { id: lodgifySite?.id, url: lodgifySite?.url };
-
-            const getSearchResults = async (auth): Promise<any> => {
-                // Parallelize data fetching where possible
-                const [allListings, availabilities] = await Promise.all([
-                    //getAllListing allows search on all listing to filter location etc. getListing is use on initial fetch for pagination.
-                    lodgifyActions.getAllListings({ internal_ID, params: { ...params, lodgifySite: paramsProps, search: searchParams }, wix_params, auth }),
-                    validDates
-                        ? lodgifyFetchers.fetListingsSearch({ auth, params, default_Lang })
-                        : Promise.resolve([]) // No availabilities needed if dates are invalid
-                ]);
-
-                // Early exits for invalid or empty listings
-                if (!allListings.items?.length) {
-                    return {
-                        total: 0,
-                        items: [],
-                        error: allListings.items ? 'No listings found' : 'Invalid listings format: missing items array'
-                    };
-                }
-
-                // Initialize filters
-                let filteredListings = allListings.items;
-                const appliedFilters: string[] = [];
-
-                // Location Filter
-                if (search.location?.city) {
-                    const city = search.location.city;
-
-                    filteredListings = filteredListings.filter(
-                        (listing: any) =>
-                            listing.address.city === city || listing.moreinfo?.city_name === city
-                    );
-                    appliedFilters.push(`location: ${city}`);
-                }
-                if (search.location?.state) {
-                    const state = search.location.state;
-
-                    filteredListings = filteredListings.filter(
-                        (listing: any) =>
-                            listing.address.state === state || listing.moreinfo?.city_name === state
-                    );
-                    appliedFilters.push(`location: ${state}`);
-                }
-
-                // Date Filter
-                if (validDates) {
-                    const { checkInDateLocalized, checkOutDateLocalized } = params?.search || {};
-                    const checkInDate = new Date(checkInDateLocalized);
-                    const checkOutDate = new Date(checkOutDateLocalized);
-
-                    if (checkInDate < checkOutDate) {
-                        const START = dayjs(checkInDateLocalized).format('YYYY-MM-DD');
-                        const END = dayjs(checkOutDateLocalized).format('YYYY-MM-DD');
-                        // Create a Set of available property IDs
-                        const availableIds = new Set(
-                            availabilities
-                                .filter(
-                                    listing =>
-                                        listing.is_available &&
-                                        listing.period_start === START &&
-                                        listing.period_end === END
-                                )
-                                .map(listing => listing.property_id)
-                        );
-
-                        // Filter listings by availability
-                        filteredListings = filteredListings.filter(
-                            (listing: any) =>
-                                availableIds.has(Number(listing.id)) || availableIds.has(Number(listing.moreinfo?.id))
-                        );
-
-                        appliedFilters.push(`date range: ${START} to ${END}`);
-
-                        // If no listings are available for the selected date range, return an error
-                        if (filteredListings.length === 0) {
-                            return {
-                                total: 0,
-                                items: [],
-                                error: `No listings available for the selected date range: ${START} to ${END}.`
-                            };
-                        }
-                    } else {
-                        return {
-                            total: 0,
-                            items: [],
-                            error: 'Invalid date range: Check-in date must be earlier than check-out date.'
-                        };
-                    }
-                }
-
-                // Guest Count Filter
-                if (search.guestsCount && search.guestsCount > 0) {
-                    const requestedGuests = search.guestsCount;
-
-                    filteredListings = filteredListings.filter(
-                        (listing: CLIENT_LISTINGS_OBJECT) => listing.lodgifySiteApi?.max_people >= requestedGuests
-                    );
-
-                    appliedFilters.push(`guest count: ${requestedGuests}`);
-                }
-
-                // Final Check: Return results or error if no listings match
-                if (filteredListings.length === 0) {
-                    return {
-                        total: 0,
-                        items: [],
-                        error: 'No results found for the applied filters'
-                    };
-                }
-
-                // Construct the dynamic message
-                const message = `Listings returned based on combined search criteria (${appliedFilters.join(', ')})`;
-
-                // If no dates, no city, and no guest count are passed, return total as allListings.total.
-                if (
-                    !search.checkInDateLocalized &&
-                    !search.checkOutDateLocalized &&
-                    !search.location.city
-
-
-                ) {
-                    return {
-                        total: filteredListings.length,
-                        items: filteredListings,
-                        message,
-                    };
-                }
-
-                return {
-                    total: filteredListings.length,
-                    items: filteredListings,
-                    message
-                };
-            };
-            const searchResult = await getSearchResults(keysObject);
-
-            return { total: searchResult.total, items: searchResult.items };
-
-        } catch (error) {
-            console.error("Error ACTION - fetching Listings_search:", error.message);
-            throw new Error(`Fetching failed: ${error.message}`);
-        }
-
-
-
-
-    },
     getListingDetails: async ({ internal_ID, params, wix_params }: actionsParams): Promise<CLIENT_LISTING_DETAILS_RETURN> => {
         const { default_Lang } = params;
         const isWixCMSRequested = wix_params?.wix_req;
@@ -732,19 +598,15 @@ export const lodgifyActions = {
             throw new Error("Missing Lodgify API keys");
         }
         const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
-console.log("params in getListingDetails action", wix_params)
+
         try {
             // Fetch listing details and reviews
             const [listingDetails,
                 //listingDetails_SITE, DISABLED
-                calendar,
-                //for REVYOOS integration only, we fetch reviews on details page to avoid too many calls.
-                converted_revyoos
-            ] = await Promise.all([
+                calendar] = await Promise.all([
                     lodgifyFetchers.fetchListingDetails({ internal_ID, auth: keysObject, params, default_Lang }),
                     //  lodgifySiteFetchers.fetchSiteListingDetails({ auth: keysObject, params, default_Lang }), DISABLED
-                    lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang }),
-                    revyoosActions.getListingReviews({ internal_ID, params, wix_params, auth:null })
+                    lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang })
                 ]);
 
             //Fetch roomInfo to access listing photos - ONLY SUPPORT ONE ROOM FOR NOW
@@ -770,7 +632,6 @@ console.log("params in getListingDetails action", wix_params)
             const converted_calendar = new lodgify_listing_calendar_converter(calendar as lodgifyListingCalendarObectType[]).convert();
             //const converted_calendar_MinDays = filterUnavailableDates(converted_calendar); // NO CLIENT with this feature for now
 
-
             // Filter out dates with min stay only for the specific internal_ID
             // this is used when client request a min bookable dates on their calendar
             // const unavailableDates = internal_ID !== "f9ae756d-be1b-4593-87aa-c245416e4ae7" ? (converted_calendar) :
@@ -789,8 +650,7 @@ console.log("params in getListingDetails action", wix_params)
                     summary: converted_listingRoomInfo.publicDescription.summary
                 },
                 wixCms: ListingDetails_WIX,
-                calendar: unavailableDates,
-               reviews: internal_ID === "34931b7c-92cf-400e-84a1-29800a1e529c" ? converted_revyoos : null
+                calendar: unavailableDates
             };
             return { item: spread_converted_listing };
         } catch (error) {
@@ -801,160 +661,30 @@ console.log("params in getListingDetails action", wix_params)
             throw new Error(`Fetching failed: ${error.message}`);
         }
     },
-    getListingQuote: async ({ auth, params }: actionsParams): Promise<CLIENT_LISTING_QUOTE_RETURN> => {
+    getListingReviews: async ({ internal_ID, params, wix_params }: actionsParams): Promise<CLIENT_LISTING_REVIEWS_RETURN> => {
+
         try {
-            const { default_Lang } = params;
+            //Fetch WIX Site API to get revyoosHoldingId needed to fetch reviews from revyoos API
+             const {item} =  await wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params })
+             const {revyoosHoldingId} = item;
 
-            const response = await lodgifyFetchers.fetchListingQuote({ auth, params, default_Lang })
-
-            if (response.error) {
-                throw new Error(response.error)
-            }
-
-            const QUOTE = new lodgify_listing_quote_converter(response);
-            const CONVERTED_QUOTE = QUOTE.convert();
-
-            return { item: CONVERTED_QUOTE };
-        } catch (error) {
-            console.error("Error ACTION - fetching quote data:", error);
-            throw error
+        if (!revyoosHoldingId) {
+            throw new Error("revyoosHoldingId not found in listing details");
         }
-    },
-    getListingApiQuote: async ({ auth, params, internal_ID }: actionsParams): Promise<CLIENT_LISTING_QUOTE_RETURN> => {
-        try {
-            const { default_Lang } = params;
-            const keys = await getLodgifyKeys(internal_ID);
-            const { ApiKey, AppKey } = keys.client;
-            if (!ApiKey || !AppKey) {
-                throw new Error("Missing Lodgify API keys");
-            };
-            const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
+        // Fetch reviews from Revyoos API using the holding ID
+            const response = await revyoosFetchers.fetchingReyoosListingReviews({ internal_ID, params, wix_params, auth:null,revyoosHoldingId });
+           
 
-            const response = await lodgifyFetchers.fetchListingApiQuote({ auth:keysObject, params, default_Lang, keysObject: { apiKey: ApiKey, appKey: AppKey } })
-            if (response.error) {
-                throw new Error(response.error)
-            }
-
-            const QUOTE = new lodgify_listing_api_quote_converter(response);
-            const CONVERTED_QUOTE = QUOTE.convert();
-
-            return { item: CONVERTED_QUOTE };
+            // Convert to client format
+            const converted = new revyoos_listing_reviews_converter(response).convert();
+            return converted;
         } catch (error) {
-            console.error("Error ACTION - fetching API quote data:", error);
-            throw error
+            console.error(
+                "Error - ACTION - REVYOOS - fetching listing reviews :",
+                error.message
+            );
+            throw new Error(`Fetching failed: ${error.message}`);
         }
-    },
-    getListingCurrencies: async ({ internal_ID, params }: actionsParams): Promise<any> => {
-        const { default_Lang } = params;
-        const keys = await getLodgifyKeys(internal_ID);
-        const { ApiKey, AppKey } = keys.client;
-        if (!ApiKey || !AppKey) {
-            throw new Error("Missing Lodgify API keys");
-        };
-        try {
-            const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
-            const response = await lodgifyFetchers.fetchListingCurrencies({ auth: keysObject, params, default_Lang })
-            return response;
+    }
 
-        } catch (error) {
-            console.error(
-                "Error - ACTION - fetching listing currencies :",
-                error.message
-            );
-            throw new Error(`Fetching failed: ${error.message}`);
-        };
-
-    },
-    getListingCalendar: async ({ internal_ID, params }: actionsParams): Promise<any> => {
-        const { default_Lang } = params;
-        const keys = await getLodgifyKeys(internal_ID);
-        const { ApiKey, AppKey } = keys.client;
-        if (!ApiKey || !AppKey) {
-            throw new Error("Missing Lodgify API keys");
-        };
-        try {
-            const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
-            const response = await lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang })
-
-            return response;
-
-        } catch (error) {
-            console.error(
-                "Error - ACTION - fetching listing Calendar :",
-                error.message
-            );
-            throw new Error(`Fetching failed: ${error.message}`);
-        };
-
-    },
-    getListingsLocations: async ({ internal_ID, params }: actionsParams): Promise<CLIENT_LISTINGS_LOCATIONS_RETURN> => {
-        const keys = await getLodgifyKeys(internal_ID);
-        const { ApiKey, AppKey } = keys.client;
-        if (!ApiKey || !AppKey) {
-            throw new Error("Missing Lodgify API keys");
-        };
-        try {
-            const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
-
-            const spread_params = { ...params, pageNum: 1, size: 1000 }
-            const listings = await lodgifyFetchers.fetchAllListings({ auth: keysObject, params: spread_params, default_Lang: "en" })
-
-            const converted_listings = listings.items
-                .filter((lst: lodgifyListingsObjectTpye) => lst.is_active)
-                .map((listing: lodgifyListingsObjectTpye) =>
-                    new lodgify_listings_converter(listing).convert()
-                );
-
-            // ---------------------------------------------------------
-            // 4) OPTIMIZED: Gather unique city/state/country using a Set
-            // ---------------------------------------------------------
-            const uniqueCitySet = new Set();
-            const cityResults: { city: string; state: string; country: string }[] =
-                [];
-            for (const item of converted_listings) {
-                const { city, state, country } = item.address;
-                const key = `${city}||${state}||${country}`;
-                if (!uniqueCitySet.has(key)) {
-                    uniqueCitySet.add(key);
-                    cityResults.push({ city, state, country });
-                }
-            }
-
-            return { items: cityResults, total: listings.count };
-
-        } catch (error) {
-            console.error(
-                "Error - LODGIFY ACTION - fetching listing locations :",
-                error.message
-            );
-            throw new Error(`Fetching failed: ${error.message}`);
-        };
-
-    },
-    getListingsRateCalendar: async ({ internal_ID, params }: actionsParams): Promise<any> => {
-        const { default_Lang, listingId, roomId } = params;
-        if (!listingId || !roomId) {
-            throw new Error("Missing listingId or roomId");
-        }
-        const keys = await getLodgifyKeys(internal_ID);
-        const { ApiKey, AppKey } = keys.client;
-        if (!ApiKey || !AppKey) {
-            throw new Error("Missing Lodgify API keys");
-        };
-        try {
-            const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
-            const response = await lodgifyFetchers.fetchListingsRatesCalendar({ auth: keysObject, params, default_Lang })
-            const converted_rates = new lodgify_listings_rateCalendar_converter(response).convert();
-
-            return { item: converted_rates };
-
-        } catch (error) {
-            console.error(
-                "Error - ACTION - fetching Rates Calendar :",
-                error.message
-            );
-            throw new Error(`Fetching failed: ${error.message}`);
-        };
-
-    },
 };

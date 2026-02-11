@@ -43,10 +43,13 @@ import {
   hostawayCalendarObjecttype, hostawayCalendarReturnType, hostawayQuoteObjectType, hostawayQuoteReturnType,
   hostaway_review_object_type, hostaway_listing_reviews_returnType, hostaway_listing_details_returnType,
   hostaway_listingFeeSetting_OjectType,
-
-
 } from './types/hostaway';
-import { ta } from 'date-fns/locale';
+
+import {
+  revyoos_review_object_type, revyoosReviewsReturnType, 
+} from './types/revyoos';
+
+
 // Create a class to handle the conversion - DESCRIPTION MUST BE IN SNAKE_CASE FORMAT 
 
 /// LODGIFY ///
@@ -1507,6 +1510,42 @@ export class hostaway_listing_addons_converter {
     }));
   }
 }
+
+/// REVYOOS ///
+export class revyoos_listing_reviews_converter {
+  private input: revyoosReviewsReturnType;
+  private validReviews: revyoos_review_object_type[];
+
+  constructor(input: revyoosReviewsReturnType) {
+    this.input = input;
+    // Filter out hidden reviews
+    this.validReviews = this.input.a_reviews.filter(
+      (review: revyoos_review_object_type) => !review.hide);
+  }
+
+  // Convert the entire Revyoos reviews response into client format.
+  public convert(): CLIENT_LISTING_REVIEWS_RETURN {
+    return {
+      total: this.validReviews.length,
+      avg: this.getOverallAverage(),
+      items: this.validReviews.map((review: revyoos_review_object_type) => {
+        return {
+          id: review._id,
+          reviewText: review.content_reviews || "Not available",
+          createdDateTime: review.date || "Not available",
+          expireAt: false,
+          ratingScore: review.score_reviews.toString(),
+        };
+      }),
+    };
+  }
+  // Private function that computes the overall average rating across all valid reviews.
+  private getOverallAverage(): number {
+    if (this.validReviews.length === 0) return 0;
+    const total = this.validReviews.reduce((sum, review) => sum + review.score_reviews, 0);
+    return total / this.validReviews.length;
+  }
+};
 
 /// CLIENT ///
 
