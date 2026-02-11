@@ -734,27 +734,39 @@ export const lodgifyActions = {
         const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
 console.log("params in getListingDetails action", wix_params)
         try {
-            // Fetch listing details and reviews
+            // Fetch listing details, calendar, reviews, AND wixCms in parallel
+            // wixCms doesn't depend on other results so no need to wait
             const [listingDetails,
                 //listingDetails_SITE, DISABLED
                 calendar,
                 //for REVYOOS integration only, we fetch reviews on details page to avoid too many calls.
-                converted_revyoos
+                converted_revyoos,
+                ListingDetails_WIX
             ] = await Promise.all([
                     lodgifyFetchers.fetchListingDetails({ internal_ID, auth: keysObject, params, default_Lang }),
                     //  lodgifySiteFetchers.fetchSiteListingDetails({ auth: keysObject, params, default_Lang }), DISABLED
                     lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang }),
-                    internal_ID === "34931b7c-92cf-400e-84a1-29800a1e529c" ? revyoosActions.getListingReviews({ internal_ID, params, wix_params, auth:null }) : Promise.resolve(null)
+                    internal_ID === "34931b7c-92cf-400e-84a1-29800a1e529c" ? revyoosActions.getListingReviews({ internal_ID, params, wix_params, auth:null }) : Promise.resolve(null),
+                    // WIX CMS fetch with retry + graceful fallback on timeout
+                    isWixCMSRequested
+                        ? wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params })
+                            .catch(async (err) => {
+                                console.warn(`[WixCMS] First attempt failed (${err.message}), retrying...`);
+                                try {
+                                    return await wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params });
+                                } catch (retryErr) {
+                                    console.error(`[WixCMS] Retry also failed (${retryErr.message}), using fallback`);
+                                    return { item: {} };
+                                }
+                            })
+                        : Promise.resolve({ item: {} })
                 ]);
 
             //Fetch roomInfo to access listing photos - ONLY SUPPORT ONE ROOM FOR NOW
             const RoomId = listingDetails?.rooms[0]?.id.toString();
-            // SPREAD to params 
+            // SPREAD to params
             params = { ...params, roomId: RoomId }
             const roomInfo = await lodgifyFetchers.fetchListingRoomInfo({ internal_ID, auth: keysObject, params, default_Lang });
-            //FETCH additional data from WIX CMS
-
-            const ListingDetails_WIX = isWixCMSRequested ? await wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params }) : { item: {} };
 
             // CONVERSION TO FRONT END FORMAT
 
