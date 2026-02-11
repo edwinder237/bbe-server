@@ -744,7 +744,7 @@ console.log("params in getListingDetails action", wix_params)
                     lodgifyFetchers.fetchListingDetails({ internal_ID, auth: keysObject, params, default_Lang }),
                     //  lodgifySiteFetchers.fetchSiteListingDetails({ auth: keysObject, params, default_Lang }), DISABLED
                     lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang }),
-                    revyoosActions.getListingReviews({ internal_ID, params, wix_params, auth:null })
+                    internal_ID === "34931b7c-92cf-400e-84a1-29800a1e529c" ? revyoosActions.getListingReviews({ internal_ID, params, wix_params, auth:null }) : Promise.resolve(null)
                 ]);
 
             //Fetch roomInfo to access listing photos - ONLY SUPPORT ONE ROOM FOR NOW
@@ -790,7 +790,7 @@ console.log("params in getListingDetails action", wix_params)
                 },
                 wixCms: ListingDetails_WIX,
                 calendar: unavailableDates,
-               reviews: internal_ID === "34931b7c-92cf-400e-84a1-29800a1e529c" ? converted_revyoos : null
+               reviews:  converted_revyoos
             };
             return { item: spread_converted_listing };
         } catch (error) {
