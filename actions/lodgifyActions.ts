@@ -51,7 +51,7 @@ import {
 } from "../utils/clientConverter";
 
 //REVYOOS INTEGRATION
-import { revyoosActions } from "./revyoosActions";
+import { revyoosFetchers } from "./revyoosActions";
 
 const integrationType: integrationTypes = "lodgify";
 
@@ -734,33 +734,50 @@ export const lodgifyActions = {
         const keysObject: lodgifyAuthParams = { appKey: AppKey, apiKey: ApiKey };
 console.log("params in getListingDetails action", wix_params)
         try {
-            // Fetch listing details, calendar, reviews, AND wixCms in parallel
-            // wixCms doesn't depend on other results so no need to wait
+            // Fetch listing details, calendar, AND wixCms->revyoos chain in parallel
+            // wixCms fetches first, then uses revyoosHoldingId to fetch reviews (single wixCms call)
             const [listingDetails,
                 //listingDetails_SITE, DISABLED
                 calendar,
-                //for REVYOOS integration only, we fetch reviews on details page to avoid too many calls.
-                converted_revyoos,
-                ListingDetails_WIX
+                // WixCMS -> Revyoos chain: fetch wixCms once, extract revyoosHoldingId, then fetch reviews
+                wixCmsAndReviews
             ] = await Promise.all([
                     lodgifyFetchers.fetchListingDetails({ internal_ID, auth: keysObject, params, default_Lang }),
                     //  lodgifySiteFetchers.fetchSiteListingDetails({ auth: keysObject, params, default_Lang }), DISABLED
                     lodgifyFetchers.fetchListingCalendar({ auth: keysObject, params, default_Lang }),
-                    internal_ID === "34931b7c-92cf-400e-84a1-29800a1e529c" ? revyoosActions.getListingReviews({ internal_ID, params, wix_params, auth:null }) : Promise.resolve(null),
-                    // WIX CMS fetch with retry + graceful fallback on timeout
+                    // Chain: wixCms -> extract holdingId -> fetch revyoos reviews
                     isWixCMSRequested
-                        ? wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params })
-                            .catch(async (err) => {
+                        ? (async () => {
+                            let wixData: any = { item: {} };
+                            try {
+                                wixData = await wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params });
+                            } catch (err) {
                                 console.warn(`[WixCMS] First attempt failed (${err.message}), retrying...`);
                                 try {
-                                    return await wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params });
+                                    wixData = await wixCmsFetchers.fetchListingDetails({ internal_ID, wix_params });
                                 } catch (retryErr) {
                                     console.error(`[WixCMS] Retry also failed (${retryErr.message}), using fallback`);
-                                    return { item: {} };
+                                    return { wixCms: { item: {} }, reviews: null };
                                 }
-                            })
-                        : Promise.resolve({ item: {} })
+                            }
+                            // Use revyoosHoldingId from wixCms to fetch reviews
+                            const holdingId = wixData?.item?.revyoosHoldingId;
+                            let reviews = null;
+                            if (holdingId) {
+                                try {
+                                    const rawReviews = await revyoosFetchers.fetchingReyoosListingReviews({ internal_ID, params, wix_params, auth: null, revyoosHoldingId: holdingId });
+                                    reviews = new revyoos_listing_reviews_converter(rawReviews).convert();
+                                } catch (revErr) {
+                                    console.error(`[Revyoos] Failed to fetch reviews: ${revErr.message}`);
+                                }
+                            }
+                            return { wixCms: wixData, reviews };
+                        })()
+                        : Promise.resolve({ wixCms: { item: {} }, reviews: null })
                 ]);
+
+            const ListingDetails_WIX = wixCmsAndReviews.wixCms;
+            const converted_revyoos = wixCmsAndReviews.reviews;
 
             //Fetch roomInfo to access listing photos - ONLY SUPPORT ONE ROOM FOR NOW
             const RoomId = listingDetails?.rooms[0]?.id.toString();
