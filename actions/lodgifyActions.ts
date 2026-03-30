@@ -367,10 +367,11 @@ export const lodgifyActions = {
             //Check if lodgifyStie is requested
             const isLodgifySiteRequested = !!params?.lodgifySite?.id;
 
-            // Always return all listings
+            // Fetch ALL listings in one call so we can filter inactive and paginate server-side
+            const fetchAllParams = { ...params, pageNum: 1 };
 
             const promises = [
-                lodgifyFetchers.fetchListings({ internal_ID, params, auth: keysObject, default_Lang }),
+                lodgifyFetchers.fetchAllListings({ internal_ID, params: fetchAllParams, auth: keysObject, default_Lang }),
                 isLodgifySiteRequested
                     ? lodgifySiteFetchers.fetchSiteListings({ auth: keysObject, params, default_Lang })
                     : Promise.resolve(null), // fallback if lodgify site is not requested
@@ -429,9 +430,14 @@ export const lodgifyActions = {
 
             });
 
+            // Server-side pagination after filtering inactive listings
+            const pageSize = params.limit || 12;
+            const offset = params.offset || 0;
+            const paginatedItems = spread_converted_listings.slice(offset, offset + pageSize);
+
             return {
-                total: listings.count,
-                items: spread_converted_listings,
+                total: spread_converted_listings.length,
+                items: paginatedItems,
             };
         } catch (error: any) {
             // Log error details for production monitoring
@@ -544,7 +550,7 @@ export const lodgifyActions = {
             });
 
             return {
-                total: listings.count,
+                total: spread_converted_listings.length,
                 items: spread_converted_listings,
             };
         } catch (error: any) {
@@ -949,7 +955,7 @@ console.log("params in getListingDetails action", wix_params)
                 }
             }
 
-            return { items: cityResults, total: listings.count };
+            return { items: cityResults, total: converted_listings.length };
 
         } catch (error) {
             console.error(
