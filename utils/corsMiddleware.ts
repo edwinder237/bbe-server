@@ -10,7 +10,10 @@ export const corsMiddleware = (req: VercelRequest, res: VercelResponse) => {
   'https://dc2198d9-0787-417c-8d12-581c46d1faed.dev.wix-code.com',
   'https://v0-admin-app-c9qugobpiap.vercel.app',
   'https://bbe-server.vercel.app',
-'https://bbeadmin.lumiversa.com' ];
+'https://bbeadmin.lumiversa.com',
+  // Vercel preview (testing branch)
+  'https://beyondbooking-git-testing-lumevetech.vercel.app',
+  'https://bbe-server-git-testing-lumevetech.vercel.app' ];
   
   const origin = req.headers.origin;
   if (origin && allowedOrigins.includes(origin)) {
