@@ -1518,9 +1518,7 @@ export class revyoos_listing_reviews_converter {
 
   constructor(input: revyoosReviewsReturnType) {
     this.input = input;
-    // Filter out hidden reviews
-    this.validReviews = this.input.a_reviews.filter(
-      (review: revyoos_review_object_type) => !review.hide);
+    this.validReviews = this.input.data.reviews;
   }
 
   // Convert the entire Revyoos reviews response into client format.
@@ -1531,10 +1529,10 @@ export class revyoos_listing_reviews_converter {
       items: this.validReviews.map((review: revyoos_review_object_type) => {
         return {
           id: review._id,
-          reviewText: review.content_reviews || "Not available",
+          reviewText: review.text || "Not available",
           createdDateTime: review.date || "Not available",
           expireAt: false,
-          ratingScore: review.score_reviews.toString(),
+          ratingScore: review.rating.toString(),
         };
       }),
     };
@@ -1542,7 +1540,7 @@ export class revyoos_listing_reviews_converter {
   // Private function that computes the overall average rating across all valid reviews.
   private getOverallAverage(): number {
     if (this.validReviews.length === 0) return 0;
-    const total = this.validReviews.reduce((sum, review) => sum + review.score_reviews, 0);
+    const total = this.validReviews.reduce((sum, review) => sum + review.rating, 0);
     return total / this.validReviews.length;
   }
 };

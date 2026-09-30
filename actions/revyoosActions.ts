@@ -1,5 +1,4 @@
 import { handleFetch } from "../utils/handleFetching";
-import { kv } from "@vercel/kv";
 import { getLodgifyKeys } from "../utils/tokenServiceCaching";
 import { wixCmsFetchers } from "./wixCmsActions";
 import {
@@ -47,7 +46,10 @@ import {
     lodgify_listings_rateCalendar_converter,
     revyoos_listing_reviews_converter
 } from "../utils/clientConverter";
-import { method } from "lodash";
+import {
+    revyoosReviewsReturnType,
+    revyoos_review_object_type,
+} from "../utils/types/revyoos";
 
 const integrationType: integrationTypes = "lodgify";
 
@@ -92,75 +94,140 @@ interface lodgifySite {
     id: string;
 }
 
-const REVYOOS_TOKEN_KEY = "revyoos_token";
-const REVYOOS_TOKEN_TTL = 6 * 24 * 60 * 60; // 6 days in seconds
+const REVYOOS_API_BASE_URL = "https://www.revyoos.com/api/v1";
+const REVYOOS_PAGE_SIZE = 100;
+const REVYOOS_REQUEST_TIMEOUT_MS = 10_000;
+const REVYOOS_MAX_RATE_LIMIT_RETRIES = 2;
+const REVYOOS_MAX_PAGES = 1_000;
 
-const getRevyoosToken = async (): Promise<string> => {
-    try {
-        const cachedToken = await kv.get(REVYOOS_TOKEN_KEY);
-        if (cachedToken) {
-            return cachedToken as string;
-        }
-    } catch (error) {
-        console.warn("Error reading revyoos token from Redis, fetching new one:", error.message);
+const wait = (milliseconds: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const getRevyoosApiKey = (): string => {
+    const apiKey = process.env.REVYOOS_API_KEY?.trim();
+
+    if (!apiKey) {
+        throw new Error("REVYOOS_API_KEY is not configured");
     }
 
-    return fetchNewRevyoosToken();
+    return apiKey;
 };
 
-const fetchNewRevyoosToken = async (): Promise<string> => {
-    const signinUrl = "https://www.revyoos.com/lapi/signin?email=roz.bourgeois@gmail.com&password=97c300a2806fa932abc197b878824d1346d287c4";
-    console.log("[Revyoos] Attempting to fetch new token from signin endpoint...");
-    try {
-        const response = await handleFetch({
-            fetchUrl: signinUrl,
-            options: { method: "GET", headers: { accept: "application/json" } },
-            action: "revyoosSignin",
-        }) as any;
+const getRevyoosErrorMessage = (payload: any, status: number): string => {
+    if (typeof payload?.code === "string") {
+        return payload.code;
+    }
 
-        console.log("[Revyoos] Signin response received:", JSON.stringify(response));
+    if (Array.isArray(payload?.errors)) {
+        const messages = payload.errors
+            .map((error: any) => error?.message)
+            .filter(Boolean);
 
-        const token = response.s_token;
-        if (!token) {
-            console.error("[Revyoos] No token field in signin response. Full response:", JSON.stringify(response));
-            throw new Error("No token returned from Revyoos signin");
+        if (messages.length > 0) {
+            return messages.join(", ");
+        }
+    }
+
+    return `HTTP ${status}`;
+};
+
+const getRetryDelayMs = (retryAfter: string | null, attempt: number): number => {
+    if (retryAfter) {
+        const seconds = Number(retryAfter);
+        if (Number.isFinite(seconds) && seconds >= 0) {
+            return Math.min(seconds * 1_000, 10_000);
         }
 
-        console.log("[Revyoos] Token fetched successfully, caching in Redis with TTL:", REVYOOS_TOKEN_TTL);
-        // Cache in Redis with TTL (non-blocking — don't let Redis failure prevent returning the token)
+        const retryDate = Date.parse(retryAfter);
+        if (!Number.isNaN(retryDate)) {
+            return Math.min(Math.max(retryDate - Date.now(), 0), 10_000);
+        }
+    }
+
+    return Math.min(500 * (2 ** attempt), 10_000);
+};
+
+const fetchRevyoosPage = async (
+    holdingId: string,
+    page: number,
+    apiKey: string,
+): Promise<revyoosReviewsReturnType> => {
+    const endpointUrl = new URL(`${REVYOOS_API_BASE_URL}/reviews`);
+    endpointUrl.searchParams.set("holdingId", holdingId);
+    endpointUrl.searchParams.set("page", page.toString());
+    endpointUrl.searchParams.set("limit", REVYOOS_PAGE_SIZE.toString());
+
+    for (let attempt = 0; attempt <= REVYOOS_MAX_RATE_LIMIT_RETRIES; attempt += 1) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(
+            () => controller.abort(),
+            REVYOOS_REQUEST_TIMEOUT_MS,
+        );
+
         try {
-            await kv.set(REVYOOS_TOKEN_KEY, token, { ex: REVYOOS_TOKEN_TTL });
-            console.log("[Revyoos] Token cached in Redis successfully");
-        } catch (cacheError) {
-            console.warn("[Revyoos] Failed to cache token in Redis, continuing without cache:", cacheError.message);
+            const response = await fetch(endpointUrl, {
+                method: "GET",
+                headers: {
+                    accept: "application/json",
+                    "X-Api-Key": apiKey,
+                    "User-Agent": "BeyondBookingEngine/1.0",
+                },
+                redirect: "follow",
+                signal: controller.signal,
+            });
+
+            const rawBody = await response.text();
+            let payload: any = null;
+
+            try {
+                payload = rawBody ? JSON.parse(rawBody) : null;
+            } catch {
+                throw new Error(
+                    `Revyoos returned a non-JSON response (HTTP ${response.status})`,
+                );
+            }
+
+            if (response.status === 429 && attempt < REVYOOS_MAX_RATE_LIMIT_RETRIES) {
+                const retryDelay = getRetryDelayMs(
+                    response.headers.get("retry-after"),
+                    attempt,
+                );
+                console.warn(
+                    `[Revyoos] Rate limited on page ${page}; retrying in ${retryDelay}ms`,
+                );
+                await wait(retryDelay);
+                continue;
+            }
+
+            if (!response.ok) {
+                throw new Error(
+                    `Revyoos API request failed (${response.status}): ${getRevyoosErrorMessage(payload, response.status)}`,
+                );
+            }
+
+            if (
+                payload?.success !== true ||
+                !Array.isArray(payload?.data?.reviews) ||
+                !payload?.data?.pagination
+            ) {
+                throw new Error("Revyoos returned an unexpected response shape");
+            }
+
+            return payload as revyoosReviewsReturnType;
+        } catch (error) {
+            if (error instanceof Error && error.name === "AbortError") {
+                throw new Error(
+                    `Revyoos request timed out after ${REVYOOS_REQUEST_TIMEOUT_MS / 1_000} seconds`,
+                );
+            }
+
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
         }
-        return token;
-    } catch (error) {
-        console.error("[Revyoos] Error fetching new token:", error.message);
-        throw error;
-    }
-};
-
-// Helper function to fetch Lodgify data with timeout
-
-const fetchRevyoosData = async ({ endpointUrl, auth, action, method }): Promise<any> => {
-    const options: RequestInit = {
-        method: method,
-        headers: {
-            accept: "application/json",
-        },
-    };
-    try {        const response = await handleFetch({ fetchUrl: endpointUrl, options, action }) as any;
-        if (response.status === 400) {
-            console.warn(`Error: ${response.title || response.detail}`)
-            throw new Error(`${response.title || response.detail}`)
-        }
-        return response
-    } catch (error) {
-        console.error(`Error REVYOOS FETCHER: ${error.message}`);
-        throw error;
     }
 
+    throw new Error("Revyoos rate limit retry budget exhausted");
 };
 
 const fetchLodgifyData = async ({ endpointUrl, lodgifyAuth, action, method, default_Lang }: LodgifyApiProp): Promise<LodgifyApiReturnType> => {
@@ -331,33 +398,50 @@ export const lodgifyFetchers: FetchMap = {
 
 export const revyoosFetchers = {
     fetchingReyoosListingReviews : async ({ internal_ID, params, wix_params, auth, revyoosHoldingId }): Promise<any> => {
-        const holdingId = revyoosHoldingId;
-        let token = await getRevyoosToken();
-        console.log(`Fetching Revyoos reviews for holding ID ${holdingId} with token ${token}`);
-        const endpointUrl = `https://www.revyoos.com/lapi/reviews?token=${token}&page=1&limit=500&id_holding=${holdingId}`;
-
-        try {
-            const response = await fetchRevyoosData({
-                endpointUrl,
-                method: "GET",
-                action: "fetchRevyoosListingReviews",
-                auth: token
-            });
-            return response;
-        } catch (error) {
-            // Token may be expired — fetch a new one and retry once
-            console.warn("Revyoos token may be expired, fetching new token and retrying...");
-            token = await fetchNewRevyoosToken();
-            const retryUrl = `https://www.revyoos.com/lapi/reviews?token=${token}&page=1&limit=500&id_holding=${holdingId}`;
-            const response = await fetchRevyoosData({
-                endpointUrl: retryUrl,
-                method: "GET",
-                action: "fetchRevyoosListingReviews_retry",
-                auth: token
-            });
-            return response;
+        const holdingId = String(revyoosHoldingId || "").trim();
+        if (!holdingId) {
+            throw new Error("Revyoos holding ID is required");
         }
-    }};
+
+        const apiKey = getRevyoosApiKey();
+        const reviews: revyoos_review_object_type[] = [];
+        let page = 1;
+        let firstPagination: revyoosReviewsReturnType["data"]["pagination"] | null = null;
+
+        while (page <= REVYOOS_MAX_PAGES) {
+            const response = await fetchRevyoosPage(holdingId, page, apiKey);
+            const { reviews: pageReviews, pagination } = response.data;
+
+            reviews.push(...pageReviews);
+            firstPagination ||= pagination;
+
+            if (!pagination.hasNext) {
+                return {
+                    success: true,
+                    data: {
+                        reviews,
+                        pagination: {
+                            ...(firstPagination || pagination),
+                            totalItems: pagination.totalItems,
+                            hasNext: false,
+                        },
+                    },
+                } satisfies revyoosReviewsReturnType;
+            }
+
+            const nextPage = pagination.currentPage + 1;
+            if (nextPage <= page) {
+                throw new Error("Revyoos returned invalid pagination metadata");
+            }
+
+            page = nextPage;
+        }
+
+        throw new Error(
+            `Revyoos pagination exceeded the safety limit of ${REVYOOS_MAX_PAGES} pages`,
+        );
+    }
+};
 
 export const revyoosActions = {
     getListings: async ({ internal_ID, params, wix_params, auth, }: actionsParams): Promise<CLIENT_LISTINGS_RETURN> => {
